@@ -19,7 +19,7 @@ if st.session_state.idioma is None:
             st.session_state.idioma = "es"
             st.rerun()
     with col_lang2:
-        if st.button("🇬🇧 English", use_container_width=True):
+        if st.button("🇺🇸 English", use_container_width=True):
             st.session_state.idioma = "en"
             st.rerun()
             
