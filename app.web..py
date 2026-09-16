@@ -487,7 +487,3 @@ if st.session_state.comidas_registradas or activar_cheat:
         st.rerun()
 else:
     st.info(t["no_registros"])
-        st.session_state.comidas_registradas = []
-        st.rerun()
-else:
-    st.info(t["no_registros"])
