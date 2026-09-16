@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-# -*- coding: utf-8 -*-
 import streamlit as st
 import requests
 import random
@@ -75,18 +74,32 @@ if st.session_state.get("modo_presupuesto", False):
     st.markdown("---")
     st.subheader(f"🛒 Opciones para tu {tipo_comida_select} (Presupuesto: ${presupuesto_diario} CLP)")
     
-    if presupuesto_diario <= 5000:
-        opcion_sana = "Avena a granel con leche sachet y 2 huevos revueltos (~$1.500)"
-        opcion_inter = "Pan marraqueta o hallulla con atún en agua y tomate (~$2.000)"
-        opcion_relajada = "Fideos Carozzi con salsa de tomate básica y vienesa (~$2.500)"
-    elif presupuesto_diario <= 10000:
-        opcion_sana = "Pechuga de pollo con arroz y ensalada mixta de feria (~$4.500)"
-        opcion_inter = "Carne molida con fideos o puré de papas casero (~$5.500)"
-        opcion_relajada = "Pizza Lider familiar (porción generosa) o completos caseros con bebida (~$6.000)"
-    else:
-        opcion_sana = "Salmón o atún fresco con camote al horno y verduras salteadas (~$9.000)"
-        opcion_inter = "Lomo vetado o posta rosada con papas doradas y palta (~$8.500)"
-        opcion_relajada = "Promoción de sushi para uno o pizza de pizzería local (~$11.000)"
+    if tipo_comida_select == "Desayuno / Once":
+        if presupuesto_diario <= 5000:
+            opcion_sana = "Té o café con 1 pan marraqueta o hallulla tostada con huevo revuelto o quesillo (~$600)"
+            opcion_inter = "Yogurt batido con 2 cucharadas de avena y medio plátano (~$700)"
+            opcion_relajada = "Pan con mantequilla o mermelada y un vaso de leche con cacao (~$500)"
+        elif presupuesto_diario <= 10000:
+            opcion_sana = "Té o café con pan marraqueta, palta molida y un huevo duro (~$1.200)"
+            opcion_inter = "Yogurt griego con cereales o un pan con jamón de pavo y queso mantecoso (~$1.800)"
+            opcion_relajada = "Pancook casero o tostadas con manjar/mermelada y leche con chocolate (~$1.500)"
+        else:
+            opcion_sana = "Tostadas en pan integral con palta, huevo pochado o revuelto y batido de fruta (~$2.500)"
+            opcion_inter = "Queso fresco, jamón de pierna, pan de molde integral y café de grano (~$2.200)"
+            opcion_relajada = "Medialunas de panadería con café con leche y jugo natural (~$3.000)"
+    else: # Lógica para Almuerzo o Cena
+        if presupuesto_diario <= 5000:
+            opcion_sana = "Arroz o fideos con dos huevos duros y ensalada de tomate básica (~$1.200)"
+            opcion_inter = "Lentejas guisadas con un trozo de zapallo y arroz (~$1.500)"
+            opcion_relajada = "Fideos Carozzi con salsa de tomate básica y una vienesa (~$1.800)"
+        elif presupuesto_diario <= 10000:
+            opcion_sana = "Pechuga de pollo a la plancha con arroz y ensalada mixta de feria (~$4.500)"
+            opcion_inter = "Carne molida salteada con puré de papas casero (~$5.000)"
+            opcion_relajada = "Pizza Lider familiar (porción) o completos caseros con refresco (~$4.500)"
+        else:
+            opcion_sana = "Salmón o atún fresco con camote al horno y verduras salteadas (~$9.000)"
+            opcion_inter = "Lomo vetado o posta rosada con papas doradas y ensalada a elección (~$8.500)"
+            opcion_relajada = "Promoción de sushi para uno o pizza de pizzería local (~$10.000)"
 
     st.success(f"🌱 **Opción 1 (Bastante sana acorde al presupuesto):**\n- {opcion_sana}")
     st.info(f"⚖️ **Opción 2 (Punto intermedio equilibrado):**\n- {opcion_inter}")
@@ -470,6 +483,10 @@ if st.session_state.comidas_registradas or activar_cheat:
 
     st.markdown("---")
     if st.button(t["borrar_todo"]):
+        st.session_state.comidas_registradas = []
+        st.rerun()
+else:
+    st.info(t["no_registros"])
         st.session_state.comidas_registradas = []
         st.rerun()
 else:
