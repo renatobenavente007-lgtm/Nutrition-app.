@@ -402,24 +402,24 @@ else:
 
 st.markdown("---")
 
-# --- NUEVO MODO: CALCULADORA DE AGUA INTERACTIVA ---
-st.subheader("💧 Activador de Calculadora de Hidratación")
+# --- MODO: CALCULADORA DE AGUA E HIDRATACIÓN Y PASOS DIARIOS ---
+st.subheader("💧 Activador de Calculadora de Hidratación y Pasos")
 
 if "activar_calculadora_agua" not in st.session_state:
     st.session_state.activar_calculadora_agua = False
 
 col_btn_agua1, col_btn_agua2 = st.columns(2)
 with col_btn_agua1:
-    if st.button("💧 Activar Calculadora de Agua", use_container_width=True):
+    if st.button("💧 Activar Calculadora de Agua y Pasos", use_container_width=True):
         st.session_state.activar_calculadora_agua = True
         st.rerun()
 with col_btn_agua2:
-    if st.button("❌ Desactivar Calculadora de Agua", use_container_width=True):
+    if st.button("❌ Desactivar Calculadora de Agua y Pasos", use_container_width=True):
         st.session_state.activar_calculadora_agua = False
         st.rerun()
 
 if st.session_state.activar_calculadora_agua:
-    st.info("✨ ¡Modo de cálculo de agua activado! Selecciona tu nivel de actividad física:")
+    st.info("✨ ¡Modo de salud y movimiento activado! Selecciona tu nivel de actividad física para calcular tu agua y pasos recomendados:")
 
     nivel_actividad_agua = st.selectbox(
         "¿Cuál es tu nivel de actividad física?",
@@ -433,27 +433,49 @@ if st.session_state.activar_calculadora_agua:
 
     peso_para_agua = peso_actual
     sexo_para_agua = sexo
+    edad_para_pasos = edad
 
-    if st.button("🧮 Calcular mi consumo de agua", use_container_width=True):
+    if st.button("🧮 Calcular mis metas diarias", use_container_width=True):
+        # --- CÁLCULO DE AGUA ---
         ml_base = peso_para_agua * 35
-
         if sexo_para_agua == "Masculino":
             ml_base += 200
 
         if "No hago" in nivel_actividad_agua:
-            extra_actividad = 0
+            extra_actividad_agua = 0
         elif "2 veces" in nivel_actividad_agua:
-            extra_actividad = 400
+            extra_actividad_agua = 400
         else:
-            extra_actividad = 800
+            extra_actividad_agua = 800
 
-        total_agua_ml = ml_base + extra_actividad
+        total_agua_ml = ml_base + extra_actividad_agua
         total_agua_litros = total_agua_ml / 1000
         vasos_estandar = round(total_agua_ml / 250)
 
-        st.success(f"🎯 **Resultado para ti ({peso_para_agua} kg | {sexo_para_agua}):**")
-        st.metric("Litros recomendados al día", f"{total_agua_litros:.2f} L")
-        st.write(f"💧 Esto equivale aproximadamente a unos **{vasos_estandar} vasos** de 250 ml diarios (incluyendo tus **{extra_actividad} ml** extra por tu nivel de entrenamiento).")
+        # --- CÁLCULO DE PASOS ---
+        # Base de pasos según actividad
+        if "No hago" in nivel_actividad_agua:
+            pasos_base = 6500
+        elif "2 veces" in nivel_actividad_agua:
+            pasos_base = 8500
+        else:
+            pasos_base = 11000
+
+        # Ajuste leve por edad y sexo (ej: rangos jóvenes suelen beneficiarse de un umbral óptimo mayor)
+        if edad_para_pasos < 30:
+            pasos_base += 500
+        if sexo_para_pasos == "Masculino":
+            pasos_base += 300
+
+        st.success(f"🎯 **Resultados personalizados para ti ({peso_para_agua} kg | {edad_para_pasos} años | {sexo_para_agua}):**")
+        
+        col_res1, col_res2 = st.columns(2)
+        with col_res1:
+            st.metric("Litros de Agua Recomendados", f"{total_agua_litros:.2f} L")
+            st.write(f"💧 Aprox. **{vasos_estandar} vasos** diarios.")
+        with col_res2:
+            st.metric("Meta de Pasos Diarios", f"{pasos_base:,} pasos".replace(",", "."))
+            st.write(f"🚶‍♂️ Ideal para mantener tu nivel de actividad y salud.")
 
 st.markdown("---")
 
