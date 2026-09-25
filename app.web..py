@@ -12,7 +12,7 @@ if "idioma" not in st.session_state:
 if st.session_state.idioma is None:
     st.title("🌐 Select your language / Selecciona tu idioma")
     st.write("Por favor, elige tu idioma para continuar:")
-    
+
     col_lang1, col_lang2 = st.columns(2)
     with col_lang1:
         if st.button("🇪🇸 Español", use_container_width=True):
@@ -22,7 +22,7 @@ if st.session_state.idioma is None:
         if st.button("🇺🇸 English (US)", use_container_width=True):
             st.session_state.idioma = "en"
             st.rerun()
-            
+
     st.stop()
 
 # --- PASO 2: PREGUNTA DE NACIONALIDAD Y MODO PRESUPUESTO (SOLO SI ES ESPAÑOL/CHILE) ---
@@ -35,7 +35,7 @@ if "modo_presupuesto" not in st.session_state:
 if st.session_state.es_chileno is None and st.session_state.idioma == "es":
     st.title("🇨🇱 Verificación de Nacionalidad")
     st.write("¿Eres de Chile?")
-    
+
     col_ch1, col_ch2 = st.columns(2)
     with col_ch1:
         if st.button("Sí, soy de Chile", use_container_width=True):
@@ -44,14 +44,14 @@ if st.session_state.es_chileno is None and st.session_state.idioma == "es":
     with col_ch2:
         if st.button("No", use_container_width=True):
             st.session_state.es_chileno = False
-            st.modo_presupuesto = False
+            st.session_state.modo_presupuesto = False
             st.rerun()
     st.stop()
 
 if st.session_state.es_chileno and st.session_state.modo_presupuesto is None and st.session_state.idioma == "es":
     st.title("🛒 Modo de Presupuesto Reducido")
     st.write("¿Quieres usar el **modo de presupuesto reducido**? Este modo intentará buscar opciones más baratas, saludables y acorde a tus gustos posibles para alcanzar tu objetivo, sugiriéndote por cada comida opciones basadas en un presupuesto diario que le des (una opción muy sana, una no tan sana pero acorde a calorías/presupuesto, y un intermedio).")
-    
+
     col_p1, col_p2 = st.columns(2)
     with col_p1:
         if st.button("Sí, activar modo presupuesto", use_container_width=True):
@@ -67,22 +67,27 @@ if st.session_state.es_chileno and st.session_state.modo_presupuesto is None and
 if st.session_state.get("modo_presupuesto", False):
     st.title("💡 Panel de Presupuesto Reducido (Chile)")
     st.write("Aquí tienes tus opciones inteligentes basadas en tu presupuesto diario para cumplir tus macros sin gastar de más.")
-    
+
     presupuesto_diario = st.number_input("Ingresa tu presupuesto diario disponible (en pesos chilenos - CLP):", min_value=1000, value=6000, step=500)
-    tipo_comida_select = st.selectbox("¿Qué comida deseas planificar?", ["Desayuno / Once", "Almuerzo", "Cena"])
     
+    # Campo de texto libre para elegir o escribir el tipo de comida
+    tipo_comida_select = st.text_input("¿Qué comida deseas planificar?", value="Desayuno / Once")
+
     st.markdown("---")
     st.subheader(f"🛒 Opciones para tu {tipo_comida_select} (Presupuesto: ${presupuesto_diario} CLP)")
-    
-    if tipo_comida_select == "Desayuno / Once":
+
+    # Detección inteligente para adaptar las sugerencias según sea Desayuno/Once o Almuerzo/Cena
+    es_desayuno_once = any(term in tipo_comida_select.lower() for term in ["desayuno", "once", "once/desayuno"])
+
+    if es_desayuno_once:
         if presupuesto_diario <= 5000:
             opcion_sana = "Té o café con 1 pan marraqueta o hallulla tostada con huevo revuelto o quesillo (~$600)"
             opcion_inter = "Yogurt batido con 2 cucharadas de avena y medio plátano (~$700)"
-            opcion_relajada = "Pan con mantequilla o mermelada y un vaso de leche con cacao (~$500)"
+            opcion_relajada = "Pan con mantequilla mix o mermelada y un vaso de leche con cacao (~$500)"
         elif presupuesto_diario <= 10000:
             opcion_sana = "Té o café con pan marraqueta, palta molida y un huevo duro (~$1.200)"
             opcion_inter = "Yogurt griego con cereales o un pan con jamón de pavo y queso mantecoso (~$1.800)"
-            opcion_relajada = "Pancook casero o tostadas con manjar/mermelada y leche con chocolate (~$1.500)"
+            opcion_relajada = "Tostadas con manjar/mermelada y leche con chocolate (~$1.500)"
         else:
             opcion_sana = "Tostadas en pan integral con palta, huevo pochado o revuelto y batido de fruta (~$2.500)"
             opcion_inter = "Queso fresco, jamón de pierna, pan de molde integral y café de grano (~$2.200)"
@@ -95,21 +100,21 @@ if st.session_state.get("modo_presupuesto", False):
         elif presupuesto_diario <= 10000:
             opcion_sana = "Pechuga de pollo a la plancha con arroz y ensalada mixta de feria (~$4.500)"
             opcion_inter = "Carne molida salteada con puré de papas casero (~$5.000)"
-            opcion_relajada = "Pizza Lider familiar (porción) o completos caseros con refresco (~$4.500)"
+            opcion_relajada = "Completos caseros con refresco (~$4.500)"
         else:
             opcion_sana = "Salmón o atún fresco con camote al horno y verduras salteadas (~$9.000)"
             opcion_inter = "Lomo vetado o posta rosada con papas doradas y ensalada a elección (~$8.500)"
-            opcion_relajada = "Promoción de sushi para uno o pizza de pizzería local (~$10.000)"
+            opcion_relajada = "Promoción de sushi para uno o porción de pizza local (~$10.000)"
 
     st.success(f"🌱 **Opción 1 (Bastante sana acorde al presupuesto):**\n- {opcion_sana}")
     st.info(f"⚖️ **Opción 2 (Punto intermedio equilibrado):**\n- {opcion_inter}")
     st.warning(f"🍕 **Opción 3 (No tan sana, pero encaja en calorías y presupuesto):**\n- {opcion_relajada}")
-    
+
     st.markdown("---")
     if st.button("🔄 Volver / Ir a la Calculadora Normal de Calorías"):
         st.session_state.modo_presupuesto = False
         st.rerun()
-    
+
     st.stop()
 
 # --- PASO 3: DICCIONARIOS DE TEXTOS SEGÚN EL IDIOMA ---
@@ -198,7 +203,7 @@ if st.sidebar.button("🌐 Cambiar Idioma / Change Language"):
     st.session_state.modo_presupuesto = None
     st.rerun()
 
-# Base de datos completa (valores por cada 100 gramos o ml)
+# Base de datos completa (valores por cada 100 gramos o ml) - Actualizada con mantequilla mix
 base_datos_calorias = {
     "fideos carozzi": {"calorias": 318, "proteinas": 11.6},
     "carne en tiras": {"calorias": 108, "proteinas": 22.7},
@@ -241,7 +246,7 @@ def buscar_alimento_internet(nombre_alimento):
                     nutriments = p.get("nutriments", {})
                     calorias = nutriments.get("energy-kcal_100g") or nutriments.get("energy-kcal")
                     proteinas = nutriments.get("proteins_100g") or nutriments.get("proteins")
-                    
+
                     if calorias is not None and proteinas is not None:
                         return {
                             "calorias": float(calorias),
@@ -289,7 +294,7 @@ if diferencia_peso > 0:
     calorias_totales_cambio = diferencia_peso * 7700
     cambio_diario = calorias_totales_cambio / (semanas_meta * 7)
     meta_calorias_diarias = mantenimiento_estimado - cambio_diario
-    
+
     st.sidebar.markdown(f"📉 {t['cambio_deficit'].format(val=cambio_diario)}")
     st.sidebar.markdown(f"🎯 **{t['meta_deficit']}** ~**{meta_calorias_diarias:.0f} kcal/día**")
 
@@ -298,7 +303,7 @@ elif diferencia_peso < 0:
     calorias_totales_cambio = kilos_a_subir * 7700
     cambio_diario = calorias_totales_cambio / (semanas_meta * 7)
     meta_calorias_diarias = mantenimiento_estimado + cambio_diario
-    
+
     st.sidebar.markdown(f"📈 {t['cambio_superavit'].format(val=cambio_diario)}")
     st.sidebar.markdown(f"🎯 **{t['meta_superavit']}** ~**{meta_calorias_diarias:.0f} kcal/día**")
 
@@ -333,7 +338,7 @@ if texto_ingresado:
     for alimento in base_datos_calorias.keys():
         if alimento in texto_ingresado:
             alimentos_encontrados.append(alimento)
-    
+
     if not alimentos_encontrados and texto_ingresado:
         with st.spinner("Buscando..." if st.session_state.idioma == "es" else "Searching..."):
             info_web = buscar_alimento_internet(texto_ingresado)
@@ -341,11 +346,11 @@ if texto_ingresado:
                 base_datos_calorias[texto_ingresado] = info_web
                 alimentos_encontrados.append(texto_ingresado)
                 st.sidebar.success(t["alimento_encontrado"].format(item=texto_ingresado))
-    
+
     if alimentos_encontrados:
         st.sidebar.markdown("---")
         st.sidebar.write("**Ajusta las cantidades (g o ml):**" if st.session_state.idioma == "es" else "**Adjust quantities (g or ml):**")
-        
+
         for alimento in alimentos_encontrados:
             cantidad = st.sidebar.number_input(
                 f"Cantidad de {alimento}:" if st.session_state.idioma == "es" else f"Amount of {alimento}:", 
@@ -354,13 +359,13 @@ if texto_ingresado:
                 step=10.0, 
                 key=f"qty_{alimento}"
             )
-            
+
             cal_100 = base_datos_calorias[alimento]["calorias"]
             prot_100 = base_datos_calorias[alimento]["proteinas"]
-            
+
             cal_total = (cal_100 * cantidad) / 100
             prot_total = (prot_100 * cantidad) / 100
-            
+
             calorias_plato_actual += cal_total
             proteinas_plato_actual += prot_total
             detalle_plato[alimento] = cantidad
@@ -385,7 +390,7 @@ if detalle_plato:
         c_parcial = (base_datos_calorias[alim]["calorias"] * cant) / 100
         p_parcial = (base_datos_calorias[alim]["proteinas"] * cant) / 100
         st.write(f"- **{cant}g** de {alim} -> {c_parcial:.1f} kcal | {p_parcial:.1f}g prot")
-    
+
     st.markdown("---")
     col1, col2 = st.columns(2)
     with col1:
@@ -394,6 +399,61 @@ if detalle_plato:
         st.metric("Proteínas del Plato" if st.session_state.idioma == "es" else "Meal Protein", f"{proteinas_plato_actual:.1f} g")
 else:
     st.info(t["ingresa_plato"])
+
+st.markdown("---")
+
+# --- NUEVO MODO: CALCULADORA DE AGUA INTERACTIVA ---
+st.subheader("💧 Activador de Calculadora de Hidratación")
+
+if "activar_calculadora_agua" not in st.session_state:
+    st.session_state.activar_calculadora_agua = False
+
+col_btn_agua1, col_btn_agua2 = st.columns(2)
+with col_btn_agua1:
+    if st.button("💧 Activar Calculadora de Agua", use_container_width=True):
+        st.session_state.activar_calculadora_agua = True
+        st.rerun()
+with col_btn_agua2:
+    if st.button("❌ Desactivar Calculadora de Agua", use_container_width=True):
+        st.session_state.activar_calculadora_agua = False
+        st.rerun()
+
+if st.session_state.activar_calculadora_agua:
+    st.info("✨ ¡Modo de cálculo de agua activado! Selecciona tu nivel de actividad física:")
+
+    nivel_actividad_agua = st.selectbox(
+        "¿Cuál es tu nivel de actividad física?",
+        [
+            "No hago actividad física",
+            "Hago un poco / Me ejercito 2 veces a la semana",
+            "Mucho / 4 o más veces a la semana"
+        ],
+        key="select_actividad_agua"
+    )
+
+    peso_para_agua = peso_actual
+    sexo_para_agua = sexo
+
+    if st.button("🧮 Calcular mi consumo de agua", use_container_width=True):
+        ml_base = peso_para_agua * 35
+
+        if sexo_para_agua == "Masculino":
+            ml_base += 200
+
+        if "No hago" in nivel_actividad_agua:
+            extra_actividad = 0
+        elif "2 veces" in nivel_actividad_agua:
+            extra_actividad = 400
+        else:
+            extra_actividad = 800
+
+        total_agua_ml = ml_base + extra_actividad
+        total_agua_litros = total_agua_ml / 1000
+        vasos_estandar = round(total_agua_ml / 250)
+
+        st.success(f"🎯 **Resultado para ti ({peso_para_agua} kg | {sexo_para_agua}):**")
+        st.metric("Litros recomendados al día", f"{total_agua_litros:.2f} L")
+        st.write(f"💧 Esto equivale aproximadamente a unos **{vasos_estandar} vasos** de 250 ml diarios (incluyendo tus **{extra_actividad} ml** extra por tu nivel de entrenamiento).")
 
 st.markdown("---")
 
@@ -420,7 +480,7 @@ if st.session_state.comidas_registradas or activar_cheat:
         mensajes_cheat = [
             f"🚨 **¡CHEAT MEAL SEMANAL REGISTRADO!** Le sumaste +{calorias_cheat_extra} kcal extra al acumulado de la semana. Tienes margen para ajustar los días que quedan o meterle más ganas al entrenamiento para balancear el total semanal." if st.session_state.idioma == "es" 
             else f"🚨 **WEEKLY CHEAT MEAL LOGGED!** You added +{calorias_cheat_extra} extra kcal to the weekly total. You still have room to adjust the remaining days or hit the gym harder to balance the weekly sum.",
-            
+
             f"🍔 **¡Descontrol metido a la semana!** El acumulado subió harto. No te preocupes por un solo día, lo importante es cómo cierras la balanza al final de los 7 días." if st.session_state.idioma == "es" 
             else f"🍔 **Weekly cheat logged!** The total went up quite a bit. Don't sweat a single day, what matters is how you balance the scale at the end of the 7 days."
         ]
@@ -466,15 +526,15 @@ if st.session_state.comidas_registradas or activar_cheat:
 
     if st.session_state.comidas_registradas:
         st.write(f"### {t['desglose_comidas']}")
-        
+
         for i, comida in enumerate(st.session_state.comidas_registradas):
             col_exp, col_btn = st.columns([4, 1])
-            
+
             with col_exp:
                 with st.expander(f"📌 {comida['nombre']} ({comida['calorias']:.1f} kcal | {comida['proteinas']:.1f}g prot)"):
                     for ing, cant in comida["detalle"].items():
                         st.text(f"- {cant}g de {ing}")
-                        
+
             with col_btn:
                 st.write("") 
                 if st.button(t["borrar"], key=f"eliminar_{i}"):
