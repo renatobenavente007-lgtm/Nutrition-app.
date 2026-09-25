@@ -5,7 +5,11 @@ import random
 
 st.set_page_config(page_title="Calculadora Nutricional / Nutrition Calculator", page_icon="🥗")
 
-# --- PASO 1: SELECCIÓN DE IDIOMA SI NO EXISTE EN LA SESIÓN ---
+# --- CONTROL DE SESIÓN DE USUARIO (GOOGLE O GUEST) ---
+if "usuario_logueado" not in st.session_state:
+    st.session_state.usuario_logueado = None
+
+# --- PASO 1: SELECCIÓN DE IDIOMA Y LOGIN OPCIONAL DE GOOGLE ---
 if "idioma" not in st.session_state:
     st.session_state.idioma = None
 
@@ -22,6 +26,20 @@ if st.session_state.idioma is None:
         if st.button("🇺🇸 English (US)", use_container_width=True):
             st.session_state.idioma = "en"
             st.rerun()
+
+    st.markdown("---")
+    st.write("¿Tienes una cuenta guardada o quieres sincronizar tu progreso?")
+    
+    # Botón opcional de inicio de sesión con Google
+    if st.button("🔐 Iniciar sesión con Google (Opcional)", use_container_width=True):
+        # Aquí se conectaría el flujo de OAuth de Google en producción
+        st.session_state.usuario_logueado = "usuario_google@gmail.com"
+        st.success("¡Sesión iniciada con éxito! Redirigiendo...")
+        st.session_state.idioma = "es"  # Por defecto si entra por Google
+        st.rerun()
+
+    if st.session_state.usuario_logueado:
+        st.info(f"Conectado como: **{st.session_state.usuario_logueado}**")
 
     st.stop()
 
@@ -50,7 +68,7 @@ if st.session_state.es_chileno is None and st.session_state.idioma == "es":
 
 if st.session_state.es_chileno and st.session_state.modo_presupuesto is None and st.session_state.idioma == "es":
     st.title("🛒 Modo de Presupuesto Reducido")
-    st.write("¿Quieres usar el **modo de presupuesto reducido**? Este modo intentará buscar opciones más baratas, saludables y acorde a tus gustos posibles para alcanzar tu objetivo, sugiriéndote por cada comida opciones basadas en un presupuesto diario que le des (una opción muy sana, una no tan sana pero acorde a calorías/presupuesto, y un intermedio).")
+    st.write("¿Quieres usar el **modo de presupuesto reducido**? Este modo intentará buscar opciones más baratas, saludables y acorde a tus gustos posibles para alcanzar tu objetivo, sugiriéndote por cada comida opciones basadas en un presupuesto diario que le des.")
 
     col_p1, col_p2 = st.columns(2)
     with col_p1:
@@ -63,20 +81,17 @@ if st.session_state.es_chileno and st.session_state.modo_presupuesto is None and
             st.rerun()
     st.stop()
 
-# Si el usuario eligió el modo presupuesto reducido, mostramos su panel especial interactivo antes de la app normal
+# Panel de presupuesto reducido (Chile)
 if st.session_state.get("modo_presupuesto", False):
     st.title("💡 Panel de Presupuesto Reducido (Chile)")
     st.write("Aquí tienes tus opciones inteligentes basadas en tu presupuesto diario para cumplir tus macros sin gastar de más.")
 
     presupuesto_diario = st.number_input("Ingresa tu presupuesto diario disponible (en pesos chilenos - CLP):", min_value=1000, value=6000, step=500)
-    
-    # Campo de texto libre para elegir o escribir el tipo de comida
     tipo_comida_select = st.text_input("¿Qué comida deseas planificar?", value="Desayuno / Once")
 
     st.markdown("---")
     st.subheader(f"🛒 Opciones para tu {tipo_comida_select} (Presupuesto: ${presupuesto_diario} CLP)")
 
-    # Detección inteligente para adaptar las sugerencias según sea Desayuno/Once o Almuerzo/Cena
     es_desayuno_once = any(term in tipo_comida_select.lower() for term in ["desayuno", "once", "once/desayuno"])
 
     if es_desayuno_once:
@@ -92,7 +107,7 @@ if st.session_state.get("modo_presupuesto", False):
             opcion_sana = "Tostadas en pan integral con palta, huevo pochado o revuelto y batido de fruta (~$2.500)"
             opcion_inter = "Queso fresco, jamón de pierna, pan de molde integral y café de grano (~$2.200)"
             opcion_relajada = "Medialunas de panadería con café con leche y jugo natural (~$3.000)"
-    else: # Lógica para Almuerzo o Cena
+    else:
         if presupuesto_diario <= 5000:
             opcion_sana = "Arroz o fideos con dos huevos duros y ensalada de tomate básica (~$1.200)"
             opcion_inter = "Lentejas guisadas con un trozo de zapallo y arroz (~$1.500)"
@@ -120,7 +135,7 @@ if st.session_state.get("modo_presupuesto", False):
 # --- PASO 3: DICCIONARIOS DE TEXTOS SEGÚN EL IDIOMA ---
 textos = {
     "es": {
-        "titulo": "🥗 Mi Calculadora de Calorías y Proteínas (Enfoque Semanal)",
+        "titulo": "🥗 Mi Calculadora de Calorías y Proteínas (Enfoque Mensual)",
         "sidebar_meta": "🎯 Tu Perfil y Meta de Peso",
         "peso_actual": "¿Cuál es tu peso actual (kg)?",
         "altura": "¿Cuál es tu altura (cm)?",
@@ -128,20 +143,19 @@ textos = {
         "opciones_sexo": ["Masculino", "Femenino"],
         "edad": "Edad (años)",
         "peso_ideal": "¿Cuál sería tu peso ideal (kg)?",
-        "semanas_meta": "¿En cuántas semanas esperas obtenerlo?",
+        "meses_meta": "¿En cuántos meses esperas obtenerlo?",
         "armar_plato": "🍽️ Armar Plato Actual",
-        "cant_comidas": "¿Cuántas comidas comiste hoy?",
         "texto_plato": "Escribe tu plato (ej: arroz con carne en tiras y coca cola):",
-        "btn_guardar": "📥 Guardar esta comida en la semana",
+        "btn_guardar": "📥 Guardar esta comida en el registro mensual",
         "resumen_plato": "📊 Resumen del Plato Actual",
-        "resumen_semana": "📅 Balance Total de la Semana",
-        "total_cal": "🔥 Total Calorías Acumuladas (Semana)",
-        "total_prot": "💪 Total Proteínas Acumuladas (Semana)",
-        "meta_semanal_txt": "🎯 Meta Calórica Semanal Objetivo",
-        "desglose_comidas": "Historial de comidas acumuladas en la semana:",
+        "resumen_mes": "📅 Balance Total del Mes (30 Días)",
+        "total_cal": "🔥 Total Calorías Acumuladas (Mes)",
+        "total_prot": "💪 Total Proteínas Acumuladas (Mes)",
+        "meta_mensual_txt": "🎯 Meta Calórica Mensual Objetivo",
+        "desglose_comidas": "Historial de comidas acumuladas en el mes:",
         "borrar": "❌ Borrar",
-        "borrar_todo": "🗑️ Borrar todo el registro de la semana",
-        "no_registros": "Aún no has guardado ninguna comida en el registro semanal.",
+        "borrar_todo": "🗑️ Borrar todo el registro del mes",
+        "no_registros": "Aún no has guardado ninguna comida en el registro mensual.",
         "ingresa_plato": "Escribe tu plato en la barra lateral para comenzar a calcular.",
         "alimento_encontrado": "¡'{item}' encontrado en la web!",
         "alimento_no_encontrado": "No encontré ese alimento ni en tu base de datos ni en internet.",
@@ -151,12 +165,12 @@ textos = {
         "meta_superavit": "Meta diaria sugerida (Volumen):",
         "mantenimiento": "Mantenimiento: Tu peso ideal es igual al actual.",
         "meta_mant": "Meta diaria sugerida:",
-        "cheat_header": "🚨 Detector de Excesos / Cheat Meal",
-        "cheat_checkbox": "¡Hubo un descontrol extremo / Cheat Meal semanal!",
-        "cheat_slider": "Estímese el exceso aproximado (kcal extra):"
+        "cheat_header": "🚨 Detector de Excesos / Cheat Meals del Mes",
+        "cheat_checkbox": "¡Hubo descontrol o Cheat Meals acumulados en el mes!",
+        "cheat_slider": "Estímese el exceso total aproximado en el mes (kcal extra):"
     },
     "en": {
-        "titulo": "🥗 My Calorie & Protein Calculator (Weekly Focus)",
+        "titulo": "🥗 My Calorie & Protein Calculator (Monthly Focus)",
         "sidebar_meta": "🎯 Your Profile & Weight Goal",
         "peso_actual": "What is your current weight (kg)?",
         "altura": "What is your height (cm)?",
@@ -164,20 +178,19 @@ textos = {
         "opciones_sexo": ["Male", "Female"],
         "edad": "Age (years)",
         "peso_ideal": "What would be your ideal weight (kg)?",
-        "semanas_meta": "In how many weeks do you expect to reach it?",
+        "meses_meta": "In how many months do you expect to reach it?",
         "armar_plato": "🍽️ Build Current Meal",
-        "cant_comidas": "How many meals did you eat?",
         "texto_plato": "Type your meal (e.g., rice with stripped meat and coke):",
-        "btn_guardar": "📥 Save this meal to the week",
+        "btn_guardar": "📥 Save this meal to the month",
         "resumen_plato": "📊 Current Meal Summary",
-        "resumen_semana": "📅 Weekly Total Balance",
-        "total_cal": "🔥 Total Accumulated Calories (Week)",
-        "total_prot": "💪 Total Accumulated Protein (Week)",
-        "meta_semanal_txt": "🎯 Target Weekly Calorie Goal",
-        "desglose_comidas": "History of accumulated meals for the week:",
+        "resumen_mes": "📅 Monthly Total Balance (30 Days)",
+        "total_cal": "🔥 Total Accumulated Calories (Month)",
+        "total_prot": "💪 Total Accumulated Protein (Month)",
+        "meta_mensual_txt": "🎯 Target Monthly Calorie Goal",
+        "desglose_comidas": "History of accumulated meals for the month:",
         "borrar": "❌ Delete",
-        "borrar_todo": "🗑️ Clear all weekly logs",
-        "no_registros": "You haven't saved any meals in the weekly log yet.",
+        "borrar_todo": "🗑️ Clear all monthly logs",
+        "no_registros": "You haven't saved any meals in the monthly log yet.",
         "ingresa_plato": "Type your meal in the sidebar to start calculating.",
         "alimento_encontrado": "'{item}' found on the web!",
         "alimento_no_encontrado": "I couldn't find that food in your database or on the web.",
@@ -187,9 +200,9 @@ textos = {
         "meta_superavit": "Suggested daily target (Surplus):",
         "mantenimiento": "Maintenance: Your ideal weight matches your current one.",
         "meta_mant": "Suggested daily target:",
-        "cheat_header": "🚨 Excess / Cheat Meal Detector",
-        "cheat_checkbox": "Extreme loss of control / Weekly Cheat Meal!",
-        "cheat_slider": "Estimate approximate excess (extra kcal):"
+        "cheat_header": "🚨 Excess / Monthly Cheat Meals Detector",
+        "cheat_checkbox": "Extreme loss of control / Monthly Cheat Meals!",
+        "cheat_slider": "Estimate approximate total excess (extra kcal):"
     }
 }
 
@@ -197,13 +210,14 @@ t = textos[st.session_state.idioma]
 
 st.title(t["titulo"])
 
-if st.sidebar.button("🌐 Cambiar Idioma / Change Language"):
+if st.sidebar.button("🌐 Cambiar Idioma / Salir"):
     st.session_state.idioma = None
     st.session_state.es_chileno = None
     st.session_state.modo_presupuesto = None
+    st.session_state.usuario_logueado = None
     st.rerun()
 
-# Base de datos completa (valores por cada 100 gramos o ml) - Actualizada con mantequilla mix
+# Base de datos completa (valores por cada 100 gramos o ml) - Con mantequilla mix
 base_datos_calorias = {
     "fideos carozzi": {"calorias": 318, "proteinas": 11.6},
     "carne en tiras": {"calorias": 108, "proteinas": 22.7},
@@ -261,6 +275,9 @@ if "comidas_registradas" not in st.session_state:
 
 # --- APARTADO DE METAS Y PERFIL EN LA BARRA LATERAL ---
 st.sidebar.header(t["sidebar_meta"])
+if st.session_state.usuario_logueado:
+    st.sidebar.success(f"👤 Sesión: {st.session_state.usuario_logueado}")
+
 peso_actual = st.sidebar.number_input(t["peso_actual"], min_value=30.0, value=75.0, step=0.5)
 altura_cm = st.sidebar.number_input(t["altura"], min_value=100.0, value=175.0, step=1.0)
 sexo = st.sidebar.selectbox(t["sexo"], t["opciones_sexo"])
@@ -285,14 +302,15 @@ else:
 st.sidebar.markdown("---")
 
 peso_ideal = st.sidebar.number_input(t["peso_ideal"], min_value=30.0, value=70.0, step=0.5)
-semanas_meta = st.sidebar.number_input(t["semanas_meta"], min_value=1, value=10, step=1)
+meses_meta = st.sidebar.number_input(t["meses_meta"], min_value=1, value=3, step=1)
 
 mantenimiento_estimado = peso_actual * 30
 diferencia_peso = peso_actual - peso_ideal
+total_dias_meta = meses_meta * 30
 
 if diferencia_peso > 0:
     calorias_totales_cambio = diferencia_peso * 7700
-    cambio_diario = calorias_totales_cambio / (semanas_meta * 7)
+    cambio_diario = calorias_totales_cambio / total_dias_meta
     meta_calorias_diarias = mantenimiento_estimado - cambio_diario
 
     st.sidebar.markdown(f"📉 {t['cambio_deficit'].format(val=cambio_diario)}")
@@ -301,7 +319,7 @@ if diferencia_peso > 0:
 elif diferencia_peso < 0:
     kilos_a_subir = abs(diferencia_peso)
     calorias_totales_cambio = kilos_a_subir * 7700
-    cambio_diario = calorias_totales_cambio / (semanas_meta * 7)
+    cambio_diario = calorias_totales_cambio / total_dias_meta
     meta_calorias_diarias = mantenimiento_estimado + cambio_diario
 
     st.sidebar.markdown(f"📈 {t['cambio_superavit'].format(val=cambio_diario)}")
@@ -312,9 +330,8 @@ else:
     st.sidebar.markdown(f"⚖️ {t['mantenimiento']}")
     st.sidebar.markdown(f"🎯 **{t['meta_mant']}** ~**{meta_calorias_diarias:.0f} kcal/día**")
 
-# Meta semanal total (7 días)
-meta_calorias_semanal = meta_calorias_diarias * 7
-st.sidebar.markdown(f"📅 **Meta Semanal Total:** ~**{meta_calorias_semanal:.0f} kcal**")
+meta_calorias_mensual = meta_calorias_diarias * 30
+st.sidebar.markdown(f"📅 **Meta Mensual Total (30 días):** ~**{meta_calorias_mensual:.0f} kcal**")
 
 st.sidebar.markdown("---")
 
@@ -322,7 +339,7 @@ st.sidebar.header(t["cheat_header"])
 activar_cheat = st.sidebar.checkbox(t["cheat_checkbox"])
 calorias_cheat_extra = 0
 if activar_cheat:
-    calorias_cheat_extra = st.sidebar.number_input(t["cheat_slider"], min_value=500, max_value=5000, value=1500, step=250)
+    calorias_cheat_extra = st.sidebar.number_input(t["cheat_slider"], min_value=1000, max_value=20000, value=5000, step=500)
 
 st.sidebar.markdown("---")
 st.sidebar.header(t["armar_plato"])
@@ -370,7 +387,7 @@ if texto_ingresado:
             proteinas_plato_actual += prot_total
             detalle_plato[alimento] = cantidad
 
-        nombre_comida = st.sidebar.text_input("Nombre de esta comida (ej. Almuerzo del martes):" if st.session_state.idioma == "es" else "Meal name (e.g. Tuesday lunch):", value="Comida")
+        nombre_comida = st.sidebar.text_input("Nombre de esta comida (ej. Almuerzo del 12):" if st.session_state.idioma == "es" else "Meal name (e.g. Lunch on the 12th):", value="Comida")
         if st.sidebar.button(t["btn_guardar"]):
             st.session_state.comidas_registradas.append({
                 "nombre": nombre_comida,
@@ -378,7 +395,7 @@ if texto_ingresado:
                 "proteinas": proteinas_plato_actual,
                 "detalle": detalle_plato
             })
-            st.sidebar.success("¡Guardado en la semana!" if st.session_state.idioma == "es" else "Saved to the week!")
+            st.sidebar.success("¡Guardado en el mes!" if st.session_state.idioma == "es" else "Saved to the month!")
     else:
         st.sidebar.warning(t["alimento_no_encontrado"])
 
@@ -402,7 +419,7 @@ else:
 
 st.markdown("---")
 
-# --- MODO: CALCULADORA DE AGUA E HIDRATACIÓN Y PASOS DIARIOS ---
+# --- MODO: CALCULADORA DE AGUA Y PASOS ---
 st.subheader("💧 Activador de Calculadora de Hidratación y Pasos")
 
 if "activar_calculadora_agua" not in st.session_state:
@@ -431,14 +448,9 @@ if st.session_state.activar_calculadora_agua:
         key="select_actividad_agua"
     )
 
-    peso_para_agua = peso_actual
-    sexo_para_agua = sexo
-    edad_para_pasos = edad
-
     if st.button("🧮 Calcular mis metas diarias", use_container_width=True):
-        # --- CÁLCULO DE AGUA ---
-        ml_base = peso_para_agua * 35
-        if sexo_para_agua == "Masculino":
+        ml_base = peso_actual * 35
+        if sexo == "Masculino":
             ml_base += 200
 
         if "No hago" in nivel_actividad_agua:
@@ -452,8 +464,6 @@ if st.session_state.activar_calculadora_agua:
         total_agua_litros = total_agua_ml / 1000
         vasos_estandar = round(total_agua_ml / 250)
 
-        # --- CÁLCULO DE PASOS ---
-        # Base de pasos según actividad
         if "No hago" in nivel_actividad_agua:
             pasos_base = 6500
         elif "2 veces" in nivel_actividad_agua:
@@ -461,13 +471,12 @@ if st.session_state.activar_calculadora_agua:
         else:
             pasos_base = 11000
 
-        # Ajuste leve por edad y sexo (ej: rangos jóvenes suelen beneficiarse de un umbral óptimo mayor)
-        if edad_para_pasos < 30:
+        if edad < 30:
             pasos_base += 500
-        if sexo_para_pasos == "Masculino":
+        if sexo == "Masculino":
             pasos_base += 300
 
-        st.success(f"🎯 **Resultados personalizados para ti ({peso_para_agua} kg | {edad_para_pasos} años | {sexo_para_agua}):**")
+        st.success(f"🎯 **Resultados personalizados para ti ({peso_actual} kg | {edad} años | {sexo}):**")
         
         col_res1, col_res2 = st.columns(2)
         with col_res1:
@@ -475,76 +484,43 @@ if st.session_state.activar_calculadora_agua:
             st.write(f"💧 Aprox. **{vasos_estandar} vasos** diarios.")
         with col_res2:
             st.metric("Meta de Pasos Diarios", f"{pasos_base:,} pasos".replace(",", "."))
-            st.write(f"🚶‍♂️ Ideal para mantener tu nivel de actividad y salud.")
+            st.write(f"🚶‍♂️ Ideal para mantener tu nivel de actividad.")
 
 st.markdown("---")
 
-# --- APARTADO: BALANCE TOTAL DE LA SEMANA ---
-st.subheader(t["resumen_semana"])
+# --- APARTADO: BALANCE TOTAL DEL MES ---
+st.subheader(t["resumen_mes"])
 
 total_calorias_registradas = sum(c["calorias"] for c in st.session_state.comidas_registradas)
-total_proteinas_semana = sum(c["proteinas"] for c in st.session_state.comidas_registradas)
+total_proteinas_mes = sum(c["proteinas"] for c in st.session_state.comidas_registradas)
 
-total_calorias_semana = total_calorias_registradas + (calorias_cheat_extra if activar_cheat else 0)
+total_calorias_mes = total_calorias_registradas + (calorias_cheat_extra if activar_cheat else 0)
 
 if st.session_state.comidas_registradas or activar_cheat:
     col_d1, col_d2, col_d3 = st.columns(3)
     with col_d1:
-        st.metric(t["total_cal"], f"{total_calorias_semana:.1f} kcal")
+        st.metric(t["total_cal"], f"{total_calorias_mes:.1f} kcal")
     with col_d2:
-        st.metric(t["meta_semanal_txt"], f"{meta_calorias_semanal:.0f} kcal")
+        st.metric(t["meta_mensual_txt"], f"{meta_calorias_mensual:.0f} kcal")
     with col_d3:
-        st.metric(t["total_prot"], f"{total_proteinas_semana:.1f} g")
+        st.metric(t["total_prot"], f"{total_proteinas_mes:.1f} g")
 
-    diferencia_semanal = total_calorias_semana - meta_calorias_semanal
+    diferencia_mensual = total_calorias_mes - meta_calorias_mensual
 
     if activar_cheat:
-        mensajes_cheat = [
-            f"🚨 **¡CHEAT MEAL SEMANAL REGISTRADO!** Le sumaste +{calorias_cheat_extra} kcal extra al acumulado de la semana. Tienes margen para ajustar los días que quedan o meterle más ganas al entrenamiento para balancear el total semanal." if st.session_state.idioma == "es" 
-            else f"🚨 **WEEKLY CHEAT MEAL LOGGED!** You added +{calorias_cheat_extra} extra kcal to the weekly total. You still have room to adjust the remaining days or hit the gym harder to balance the weekly sum.",
-
-            f"🍔 **¡Descontrol metido a la semana!** El acumulado subió harto. No te preocupes por un solo día, lo importante es cómo cierras la balanza al final de los 7 días." if st.session_state.idioma == "es" 
-            else f"🍔 **Weekly cheat logged!** The total went up quite a bit. Don't sweat a single day, what matters is how you balance the scale at the end of the 7 days."
-        ]
-        st.error(random.choice(mensajes_cheat))
-
-    elif total_calorias_semana == 0:
-        st.info("🍽️ Aún no tienes registros acumulados para esta semana." if st.session_state.idioma == "es" else "🍽️ No accumulated records for this week yet.")
-
-    elif diferencia_semanal < -2500:
-        mensajes = [
-            "⚠️ Cuidado: el acumulado semanal está muy por debajo de la meta. Riesgo alto de fatiga o pérdida de masa muscular." if st.session_state.idioma == "es" 
-            else "⚠️ Warning: the weekly total is way below target. High risk of fatigue or muscle loss."
-        ]
-        st.warning(random.choice(mensajes))
-
-    elif -2500 <= diferencia_semanal <= -500:
-        mensajes = [
-            "🔥 ¡Excelente balance semanal! Vas clavado en el ritmo de déficit para quemar grasa con calma." if st.session_state.idioma == "es" 
-            else "🔥 Excellent weekly balance! Right on track with your fat-loss deficit pace."
-        ]
-        st.success(random.choice(mensajes))
-
-    elif -500 < diferencia_semanal < 500:
-        mensajes = [
-            "🎯 ¡Impecable! Tu balance semanal está perfectamente alineado con tu objetivo." if st.session_state.idioma == "es" 
-            else "🎯 Spot on! Your weekly balance is perfectly aligned with your target."
-        ]
-        st.success(random.choice(mensajes))
-
-    elif 500 <= diferencia_semanal <= 2500:
-        mensajes = [
-            "👀 Vas algo pasado en el acumulado de la semana. Modera un poco las porciones los días que quedan." if st.session_state.idioma == "es" 
-            else "👀 You are running slightly over your weekly target. Ease up on portions for the remaining days."
-        ]
-        st.warning(random.choice(mensajes))
-
+        st.error(f"🚨 **¡CHEAT MEALS ACUMULADOS EN EL MES!** Le sumaste +{calorias_cheat_extra} kcal extra al balance mensual. Todavía tienes semanas por delante para ajustar el ritmo y cumplir tu objetivo.")
+    elif total_calorias_mes == 0:
+        st.info("🍽️ Aún no tienes registros acumulados para este mes.")
+    elif diferencia_mensual < -10000:
+        st.warning("⚠️ Cuidado: el acumulado mensual está muy por debajo de la meta. Podrías arriesgar fatiga extrema o pérdida de masa muscular.")
+    elif -10000 <= diferencia_mensual <= -2000:
+        st.success("🔥 ¡Excelente balance mensual! Vas muy bien encaminado con tu déficit para quemar grasa de forma sostenible.")
+    elif -2000 < diferencia_mensual < 2000:
+        st.success("🎯 ¡Impecable! Tu balance de los 30 días está perfectamente alineado con tu objetivo.")
+    elif 2000 <= diferencia_mensual <= 10000:
+        st.warning("👀 Vas algo pasado en el acumulado del mes. Intenta moderar un poco las porciones en las próximas semanas.")
     else:
-        mensajes = [
-            "🚨 ¡Superávit semanal desatado! Te pasaste harto del presupuesto de los 7 días. ¡A ajustar los últimos días!" if st.session_state.idioma == "es" 
-            else "🚨 Massive weekly surplus! You went way over the 7-day budget. Time to tighten up the last days!"
-        ]
-        st.error(random.choice(mensajes))
+        st.error("🚨 ¡Superávit mensual desatado! Te pasaste harto del presupuesto de los 30 días. ¡A ajustar las comidas que quedan del mes!")
 
     if st.session_state.comidas_registradas:
         st.write(f"### {t['desglose_comidas']}")
