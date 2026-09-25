@@ -1,0 +1,16 @@
+# Secretos de autenticación - NUNCA subir esto
+.streamlit/secrets.toml
+
+# Datos personales de los usuarios (se genera automáticamente al usar la app)
+datos_usuarios.json
+
+# Archivos temporales de Python
+__pycache__/
+*.pyc
+
+# Zip que ya no se necesita
+files.zip
+
+# Archivos de entorno virtual (si usas venv)
+venv/
+env/
