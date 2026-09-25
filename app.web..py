@@ -9,6 +9,41 @@ st.set_page_config(page_title="Calculadora Nutricional / Nutrition Calculator", 
 if "usuario_logueado" not in st.session_state:
     st.session_state.usuario_logueado = None
 
+# Base de datos global predeterminada (valores por cada 100 gramos o ml)
+base_datos_global = {
+    "fideos carozzi": {"calorias": 318, "proteinas": 11.6},
+    "carne en tiras": {"calorias": 108, "proteinas": 22.7},
+    "carne molida": {"calorias": 168, "proteinas": 19.0},
+    "bistec posta paleta": {"calorias": 108, "proteinas": 24.4},
+    "leche chocolate": {"calorias": 75, "proteinas": 3.1},
+    "leche blanca": {"calorias": 33, "proteinas": 3.1},
+    "mani sin sal": {"calorias": 621, "proteinas": 25.8},
+    "mani salado": {"calorias": 596, "proteinas": 28.1},
+    "cereal colacao": {"calorias": 405, "proteinas": 7.4},
+    "atun en aceite": {"calorias": 133, "proteinas": 24.7},
+    "atun en agua": {"calorias": 87, "proteinas": 21.1},
+    "arroz": {"calorias": 325, "proteinas": 6.2},
+    "pollo": {"calorias": 165, "proteinas": 31.0},
+    "huevo": {"calorias": 155, "proteinas": 13.0},
+    "score guarana": {"calorias": 48, "proteinas": 0.0},
+    "coca cola": {"calorias": 32, "proteinas": 0.0},
+    "avena": {"calorias": 389, "proteinas": 16.9},
+    "pan hallulla": {"calorias": 296, "proteinas": 8.5},
+    "pan marraqueta": {"calorias": 270, "proteinas": 8.0},
+    "papas cocidas": {"calorias": 87, "proteinas": 1.9},
+    "camote": {"calorias": 86, "proteinas": 1.6},
+    "lentejas": {"calorias": 116, "proteinas": 9.0},
+    "yogurt griego": {"calorias": 97, "proteinas": 10.0},
+    "mantequilla mix": {"calorias": 542, "proteinas": 0.2},
+    "queso mantecoso": {"calorias": 356, "proteinas": 23.0},
+    "pizza espanola lider": {"calorias": 244, "proteinas": 11.0},
+    "pizza salame lider": {"calorias": 265, "proteinas": 12.0}
+}
+
+# Diccionario para almacenar alimentos personalizados por cada usuario en la sesión
+if "alimentos_personalizados" not in st.session_state:
+    st.session_state.alimentos_personalizados = {}
+
 # --- PASO 1: SELECCIÓN DE IDIOMA Y LOGIN OPCIONAL DE GOOGLE ---
 if "idioma" not in st.session_state:
     st.session_state.idioma = None
@@ -28,14 +63,12 @@ if st.session_state.idioma is None:
             st.rerun()
 
     st.markdown("---")
-    st.write("¿Tienes una cuenta guardada o quieres sincronizar tu progreso?")
+    st.write("¿Tienes una cuenta o quieres desbloquear tu menú personalizado?")
     
-    # Botón opcional de inicio de sesión con Google
     if st.button("🔐 Iniciar sesión con Google (Opcional)", use_container_width=True):
-        # Aquí se conectaría el flujo de OAuth de Google en producción
-        st.session_state.usuario_logueado = "usuario_google@gmail.com"
-        st.success("¡Sesión iniciada con éxito! Redirigiendo...")
-        st.session_state.idioma = "es"  # Por defecto si entra por Google
+        st.session_state.usuario_logueado = "estudiante_andes@mi.cl"
+        st.success("¡Sesión iniciada con éxito! Cargando tu perfil...")
+        st.session_state.idioma = "es"
         st.rerun()
 
     if st.session_state.usuario_logueado:
@@ -68,7 +101,7 @@ if st.session_state.es_chileno is None and st.session_state.idioma == "es":
 
 if st.session_state.es_chileno and st.session_state.modo_presupuesto is None and st.session_state.idioma == "es":
     st.title("🛒 Modo de Presupuesto Reducido")
-    st.write("¿Quieres usar el **modo de presupuesto reducido**? Este modo intentará buscar opciones más baratas, saludables y acorde a tus gustos posibles para alcanzar tu objetivo, sugiriéndote por cada comida opciones basadas en un presupuesto diario que le des.")
+    st.write("¿Quieres usar el **modo de presupuesto reducido**? Este modo intentará buscar opciones más baratas, saludables y acorde a tus gustos posibles para alcanzar tu objetivo.")
 
     col_p1, col_p2 = st.columns(2)
     with col_p1:
@@ -145,7 +178,7 @@ textos = {
         "peso_ideal": "¿Cuál sería tu peso ideal (kg)?",
         "meses_meta": "¿En cuántos meses esperas obtenerlo?",
         "armar_plato": "🍽️ Armar Plato Actual",
-        "texto_plato": "Escribe tu plato (ej: arroz con carne en tiras y coca cola):",
+        "texto_plato": "Escribe tu plato (ej: empanadas juanito o arroz con pollo):",
         "btn_guardar": "📥 Guardar esta comida en el registro mensual",
         "resumen_plato": "📊 Resumen del Plato Actual",
         "resumen_mes": "📅 Balance Total del Mes (30 Días)",
@@ -157,8 +190,8 @@ textos = {
         "borrar_todo": "🗑️ Borrar todo el registro del mes",
         "no_registros": "Aún no has guardado ninguna comida en el registro mensual.",
         "ingresa_plato": "Escribe tu plato en la barra lateral para comenzar a calcular.",
-        "alimento_encontrado": "¡'{item}' encontrado en la web!",
-        "alimento_no_encontrado": "No encontré ese alimento ni en tu base de datos ni en internet.",
+        "alimento_encontrado": "¡'{item}' encontrado!",
+        "alimento_no_encontrado": "No encontré ese alimento en tu base ni en internet.",
         "cambio_deficit": "Debes comer unos **{val:.0f} kcal menos** al día.",
         "meta_deficit": "Meta diaria sugerida (Déficit):",
         "cambio_superavit": "Debes comer unos **{val:.0f} kcal más** al día.",
@@ -180,7 +213,7 @@ textos = {
         "peso_ideal": "What would be your ideal weight (kg)?",
         "meses_meta": "In how many months do you expect to reach it?",
         "armar_plato": "🍽️ Build Current Meal",
-        "texto_plato": "Type your meal (e.g., rice with stripped meat and coke):",
+        "texto_plato": "Type your meal (e.g., empanadas juanito or rice):",
         "btn_guardar": "📥 Save this meal to the month",
         "resumen_plato": "📊 Current Meal Summary",
         "resumen_mes": "📅 Monthly Total Balance (30 Days)",
@@ -192,7 +225,7 @@ textos = {
         "borrar_todo": "🗑️ Clear all monthly logs",
         "no_registros": "You haven't saved any meals in the monthly log yet.",
         "ingresa_plato": "Type your meal in the sidebar to start calculating.",
-        "alimento_encontrado": "'{item}' found on the web!",
+        "alimento_encontrado": "'{item}' found!",
         "alimento_no_encontrado": "I couldn't find that food in your database or on the web.",
         "cambio_deficit": "You should eat about **{val:.0f} fewer kcal** per day.",
         "meta_deficit": "Suggested daily target (Deficit):",
@@ -217,36 +250,10 @@ if st.sidebar.button("🌐 Cambiar Idioma / Salir"):
     st.session_state.usuario_logueado = None
     st.rerun()
 
-# Base de datos completa (valores por cada 100 gramos o ml) - Con mantequilla mix
-base_datos_calorias = {
-    "fideos carozzi": {"calorias": 318, "proteinas": 11.6},
-    "carne en tiras": {"calorias": 108, "proteinas": 22.7},
-    "carne molida": {"calorias": 168, "proteinas": 19.0},
-    "bistec posta paleta": {"calorias": 108, "proteinas": 24.4},
-    "leche chocolate": {"calorias": 75, "proteinas": 3.1},
-    "leche blanca": {"calorias": 33, "proteinas": 3.1},
-    "mani sin sal": {"calorias": 621, "proteinas": 25.8},
-    "mani salado": {"calorias": 596, "proteinas": 28.1},
-    "cereal colacao": {"calorias": 405, "proteinas": 7.4},
-    "atun en aceite": {"calorias": 133, "proteinas": 24.7},
-    "atun en agua": {"calorias": 87, "proteinas": 21.1},
-    "arroz": {"calorias": 325, "proteinas": 6.2},
-    "pollo": {"calorias": 165, "proteinas": 31.0},
-    "huevo": {"calorias": 155, "proteinas": 13.0},
-    "score guarana": {"calorias": 48, "proteinas": 0.0},
-    "coca cola": {"calorias": 32, "proteinas": 0.0},
-    "avena": {"calorias": 389, "proteinas": 16.9},
-    "pan hallulla": {"calorias": 296, "proteinas": 8.5},
-    "pan marraqueta": {"calorias": 270, "proteinas": 8.0},
-    "papas cocidas": {"calorias": 87, "proteinas": 1.9},
-    "camote": {"calorias": 86, "proteinas": 1.6},
-    "lentejas": {"calorias": 116, "proteinas": 9.0},
-    "yogurt griego": {"calorias": 97, "proteinas": 10.0},
-    "mantequilla mix": {"calorias": 542, "proteinas": 0.2},
-    "queso mantecoso": {"calorias": 356, "proteinas": 23.0},
-    "pizza espanola lider": {"calorias": 244, "proteinas": 11.0},
-    "pizza salame lider": {"calorias": 265, "proteinas": 12.0}
-}
+# --- Fusión de base de datos global con los alimentos personalizados del usuario activo ---
+base_datos_calorias = base_datos_global.copy()
+if st.session_state.usuario_logueado and st.session_state.usuario_logueado in st.session_state.alimentos_personalizados:
+    base_datos_calorias.update(st.session_state.alimentos_personalizados[st.session_state.usuario_logueado])
 
 def buscar_alimento_internet(nombre_alimento):
     try:
@@ -312,19 +319,15 @@ if diferencia_peso > 0:
     calorias_totales_cambio = diferencia_peso * 7700
     cambio_diario = calorias_totales_cambio / total_dias_meta
     meta_calorias_diarias = mantenimiento_estimado - cambio_diario
-
     st.sidebar.markdown(f"📉 {t['cambio_deficit'].format(val=cambio_diario)}")
     st.sidebar.markdown(f"🎯 **{t['meta_deficit']}** ~**{meta_calorias_diarias:.0f} kcal/día**")
-
 elif diferencia_peso < 0:
     kilos_a_subir = abs(diferencia_peso)
     calorias_totales_cambio = kilos_a_subir * 7700
     cambio_diario = calorias_totales_cambio / total_dias_meta
     meta_calorias_diarias = mantenimiento_estimado + cambio_diario
-
     st.sidebar.markdown(f"📈 {t['cambio_superavit'].format(val=cambio_diario)}")
     st.sidebar.markdown(f"🎯 **{t['meta_superavit']}** ~**{meta_calorias_diarias:.0f} kcal/día**")
-
 else:
     meta_calorias_diarias = mantenimiento_estimado
     st.sidebar.markdown(f"⚖️ {t['mantenimiento']}")
@@ -416,6 +419,46 @@ if detalle_plato:
         st.metric("Proteínas del Plato" if st.session_state.idioma == "es" else "Meal Protein", f"{proteinas_plato_actual:.1f} g")
 else:
     st.info(t["ingresa_plato"])
+
+st.markdown("---")
+
+# --- NUEVA SECCIÓN: CREAR ALIMENTOS PERSONALIZADOS (SOLO SI HAY SESIÓN INICIADA) ---
+st.subheader("⭐ Mis Alimentos Personalizados (Exclusivo de tu Cuenta)")
+
+if st.session_state.usuario_logueado is not None:
+    st.success(f"🔓 Hola **{st.session_state.usuario_logueado}**: Aquí puedes registrar platos específicos (ej. *empanadas juanito*) para que solo aparezcan en tu buscador.")
+
+    with st.form("form_alimento_personalizado"):
+        nuevo_nombre = st.text_input("Nombre del plato o producto (ej: empanadas juanito):").lower().strip()
+        col_p1, col_p2 = st.columns(2)
+        with col_p1:
+            cal_por_100 = st.number_input("Calorías por cada 100g o 100ml:", min_value=0.0, value=250.0, step=5.0)
+        with col_p2:
+            prot_por_100 = st.number_input("Proteínas (g) por cada 100g o 100ml:", min_value=0.0, value=10.0, step=0.5)
+
+        submit_personalizado = st.form_submit_button("➕ Guardar en mi cuenta")
+
+        if submit_personalizado and nuevo_nombre:
+            usuario = st.session_state.usuario_logueado
+            if usuario not in st.session_state.alimentos_personalizados:
+                st.session_state.alimentos_personalizados[usuario] = {}
+            
+            # Guardamos el alimento en el espacio privado del usuario
+            st.session_state.alimentos_personalizados[usuario][nuevo_nombre] = {
+                "calorias": cal_por_100,
+                "proteinas": prot_por_100
+            }
+            st.success(f"¡'{nuevo_nombre}' ha sido agregado a tu lista personal! Ya puedes buscarlo en la barra lateral.")
+            st.rerun()
+
+    # Mostrar alimentos que ya haya registrado el usuario actual
+    usuario_actual = st.session_state.usuario_logueado
+    if usuario_actual in st.session_state.alimentos_personalizados and st.session_state.alimentos_personalizados[usuario_actual]:
+        st.write("📋 **Tus alimentos guardados actualmente:**")
+        for ali, info in st.session_state.alimentos_personalizados[usuario_actual].items():
+            st.text(f"• {ali} -> {info['calorias']} kcal | {info['proteinas']}g prot (por 100g)")
+else:
+    st.info("🔒 **¿Quieres agregar tus propios platos (como las empanadas de tu local favorito)?** Sube al inicio de la página y haz clic en **'Iniciar sesión con Google (Opcional)'** para desbloquear tu espacio personal privado.")
 
 st.markdown("---")
 
