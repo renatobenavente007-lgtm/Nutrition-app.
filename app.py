@@ -4,7 +4,101 @@ import requests
 import json
 import os
 
-st.set_page_config(page_title="Calculadora Nutricional / Nutrition Calculator", page_icon="🥗")
+st.set_page_config(page_title="MacroChile", page_icon="🔥", layout="centered")
+
+# --- TEMA VISUAL PERSONALIZADO (oscuro, estilo app fitness premium) ---
+def aplicar_estilo():
+    st.markdown("""
+        <style>
+        @import url('https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Inter:wght@400;500;600&display=swap');
+
+        html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
+
+        .stApp { background: #10141A; color: #E7ECF3; }
+
+        section[data-testid="stSidebar"] {
+            background: #171D26;
+            border-right: 1px solid #262E3A;
+        }
+
+        h1, h2, h3 { font-family: 'Sora', sans-serif; letter-spacing: -0.01em; color: #F4F6F9; }
+
+        p, span, label, li { color: #C7CEDA; }
+
+        /* --- Header / logo de marca --- */
+        .mc-hero {
+            display: flex; align-items: center; gap: 14px;
+            padding: 6px 0 18px 0;
+            border-bottom: 1px solid #262E3A;
+            margin-bottom: 22px;
+        }
+        .mc-hero-icon {
+            width: 46px; height: 46px; flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #E3B341, #F2C761);
+            box-shadow: 0 4px 14px rgba(227, 179, 65, 0.25);
+        }
+        .mc-hero-title {
+            font-family: 'Sora', sans-serif; font-weight: 800;
+            font-size: 1.7rem; color: #F4F6F9; margin: 0; line-height: 1.1;
+        }
+        .mc-hero-sub {
+            font-family: 'Inter', sans-serif; color: #8A93A3;
+            font-size: 0.85rem; margin: 3px 0 0 0;
+        }
+
+        /* --- Botones --- */
+        .stButton>button {
+            background: #1B2130; color: #E7ECF3;
+            border: 1px solid #2C3444; border-radius: 10px;
+            font-weight: 600; transition: all .15s ease;
+        }
+        .stButton>button:hover { border-color: #E3B341; color: #E3B341; }
+
+        /* --- Métricas y tarjetas --- */
+        div[data-testid="stMetric"] {
+            background: #171D26; border: 1px solid #262E3A;
+            border-radius: 14px; padding: 14px 16px;
+        }
+        div[data-testid="stExpander"] {
+            background: #171D26; border: 1px solid #262E3A !important;
+            border-radius: 12px;
+        }
+        div[data-testid="stForm"] {
+            background: #171D26; border: 1px solid #262E3A;
+            border-radius: 14px; padding: 18px;
+        }
+
+        /* --- Inputs --- */
+        .stTextInput input, .stNumberInput input, .stSelectbox div[data-baseweb="select"] {
+            background: #1B2130 !important; border: 1px solid #2C3444 !important;
+            color: #E7ECF3 !important; border-radius: 8px;
+        }
+
+        /* --- Ocultar branding genérico de Streamlit --- */
+        #MainMenu { visibility: hidden; }
+        footer { visibility: hidden; }
+        </style>
+    """, unsafe_allow_html=True)
+
+def mostrar_logo(subtitulo=""):
+    st.markdown(f"""
+        <div class="mc-hero">
+            <div class="mc-hero-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 2C12 2 7 7.5 7 12.5C7 15.5 9 18 12 18C15 18 17 15.5 17 12.5C17 11 16.3 9.8 15.5 9C15.7 10 15.3 11 14.5 11.5C14.8 10 14 8 12 6C12.3 7.5 11.5 8.5 10.5 9.5C9.3 10.7 9 12 9 13"
+                    stroke="#10141A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </div>
+            <div>
+                <p class="mc-hero-title">MacroChile</p>
+                <p class="mc-hero-sub">{subtitulo}</p>
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
+
+aplicar_estilo()
 
 # --- ARCHIVO DE PERSISTENCIA (guarda los datos de cada usuario en disco) ---
 ARCHIVO_DATOS = os.path.join(os.path.dirname(__file__), "datos_usuarios.json")
@@ -106,7 +200,7 @@ if "idioma" not in st.session_state:
     st.session_state.idioma = None
 
 if st.session_state.idioma is None:
-    st.title("🌐 Select your language / Selecciona tu idioma")
+    mostrar_logo("Select your language / Selecciona tu idioma")
     st.write("Por favor, elige tu idioma para continuar:")
 
     col_lang1, col_lang2 = st.columns(2)
@@ -140,7 +234,7 @@ if "modo_presupuesto" not in st.session_state:
     st.session_state.modo_presupuesto = None
 
 if st.session_state.es_chileno is None and st.session_state.idioma == "es":
-    st.title("🇨🇱 Verificación de Nacionalidad")
+    mostrar_logo("Verificación de nacionalidad")
     st.write("¿Eres de Chile?")
 
     col_ch1, col_ch2 = st.columns(2)
@@ -172,7 +266,7 @@ if st.session_state.es_chileno and st.session_state.modo_presupuesto is None and
 
 # Panel de presupuesto reducido (Chile)
 if st.session_state.get("modo_presupuesto", False):
-    st.title("💡 Panel de Presupuesto Reducido (Chile)")
+    mostrar_logo("💡 Panel de Presupuesto Reducido (Chile)")
     st.write("Aquí tienes tus opciones inteligentes basadas en tu presupuesto diario para cumplir tus macros sin gastar de más.")
 
     presupuesto_diario = st.number_input("Ingresa tu presupuesto diario disponible (en pesos chilenos - CLP):", min_value=1000, value=6000, step=500)
@@ -299,7 +393,7 @@ textos = {
 
 t = textos[st.session_state.idioma]
 
-st.title(t["titulo"])
+mostrar_logo(t["titulo"])
 
 if st.sidebar.button("🌐 Cambiar Idioma"):
     st.session_state.idioma = None
