@@ -3,28 +3,30 @@ import streamlit as st
 import requests
 import json
 import os
-
+import datetime
+import pandas as pd
+ 
 st.set_page_config(page_title="MacroChile", page_icon="🔥", layout="centered")
-
+ 
 # --- TEMA VISUAL PERSONALIZADO (oscuro, estilo app fitness premium) ---
 def aplicar_estilo():
     st.markdown("""
         <style>
         @import url('https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Inter:wght@400;500;600&display=swap');
-
+ 
         html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
-
+ 
         .stApp { background: #10141A; color: #E7ECF3; }
-
+ 
         section[data-testid="stSidebar"] {
             background: #171D26;
             border-right: 1px solid #262E3A;
         }
-
+ 
         h1, h2, h3 { font-family: 'Sora', sans-serif; letter-spacing: -0.01em; color: #F4F6F9; }
-
+ 
         p, span, label, li { color: #C7CEDA; }
-
+ 
         /* --- Header / logo de marca --- */
         .mc-hero {
             display: flex; align-items: center; gap: 14px;
@@ -47,7 +49,7 @@ def aplicar_estilo():
             font-family: 'Inter', sans-serif; color: #8A93A3;
             font-size: 0.85rem; margin: 3px 0 0 0;
         }
-
+ 
         /* --- Botones --- */
         .stButton>button {
             background: #1B2130; color: #E7ECF3;
@@ -55,7 +57,7 @@ def aplicar_estilo():
             font-weight: 600; transition: all .15s ease;
         }
         .stButton>button:hover { border-color: #E3B341; color: #E3B341; }
-
+ 
         /* --- Métricas y tarjetas --- */
         div[data-testid="stMetric"] {
             background: #171D26; border: 1px solid #262E3A;
@@ -69,19 +71,19 @@ def aplicar_estilo():
             background: #171D26; border: 1px solid #262E3A;
             border-radius: 14px; padding: 18px;
         }
-
+ 
         /* --- Inputs --- */
         .stTextInput input, .stNumberInput input, .stSelectbox div[data-baseweb="select"] {
             background: #1B2130 !important; border: 1px solid #2C3444 !important;
             color: #E7ECF3 !important; border-radius: 8px;
         }
-
+ 
         /* --- Ocultar branding genérico de Streamlit --- */
         #MainMenu { visibility: hidden; }
         footer { visibility: hidden; }
         </style>
     """, unsafe_allow_html=True)
-
+ 
 def mostrar_logo(subtitulo=""):
     st.markdown(f"""
         <div class="mc-hero">
@@ -97,12 +99,12 @@ def mostrar_logo(subtitulo=""):
             </div>
         </div>
     """, unsafe_allow_html=True)
-
+ 
 aplicar_estilo()
-
+ 
 # --- ARCHIVO DE PERSISTENCIA (guarda los datos de cada usuario en disco) ---
 ARCHIVO_DATOS = os.path.join(os.path.dirname(__file__), "datos_usuarios.json")
-
+ 
 def cargar_todos_los_datos():
     if os.path.exists(ARCHIVO_DATOS):
         try:
@@ -111,21 +113,21 @@ def cargar_todos_los_datos():
         except Exception:
             return {}
     return {}
-
+ 
 def guardar_todos_los_datos(datos):
     try:
         with open(ARCHIVO_DATOS, "w", encoding="utf-8") as f:
             json.dump(datos, f, ensure_ascii=False, indent=2)
     except Exception as e:
         st.error(f"No se pudo guardar tu información en disco: {e}")
-
+ 
 # --- ESTADO REAL DE SESIÓN (Google se encarga de validar la identidad) ---
 usuario_email = None
 usuario_nombre = None
 if hasattr(st, "user") and st.user.is_logged_in:
     usuario_email = st.user.email
     usuario_nombre = st.user.get("name", usuario_email)
-
+ 
 # Base de datos global predeterminada (valores por cada 100 gramos o ml)
 base_datos_global = {
     "fideos carozzi": {"calorias": 318, "proteinas": 11.6},
@@ -156,7 +158,7 @@ base_datos_global = {
     "pizza espanola lider": {"calorias": 244, "proteinas": 11.0},
     "pizza salame lider": {"calorias": 265, "proteinas": 12.0}
 }
-
+ 
 # --- CARGA DE DATOS PERSONALES DEL USUARIO (una sola vez por sesión) ---
 if "alimentos_personalizados" not in st.session_state:
     st.session_state.alimentos_personalizados = {}
@@ -164,14 +166,19 @@ if "comidas_registradas_por_usuario" not in st.session_state:
     st.session_state.comidas_registradas_por_usuario = {}
 if "comidas_registradas_invitado" not in st.session_state:
     st.session_state.comidas_registradas_invitado = []
-
+if "registro_peso_por_usuario" not in st.session_state:
+    st.session_state.registro_peso_por_usuario = {}
+if "registro_peso_invitado" not in st.session_state:
+    st.session_state.registro_peso_invitado = []
+ 
 if usuario_email and st.session_state.get("datos_cargados_para") != usuario_email:
     todos_los_datos = cargar_todos_los_datos()
     datos_usuario = todos_los_datos.get(usuario_email, {})
     st.session_state.alimentos_personalizados[usuario_email] = datos_usuario.get("alimentos_personalizados", {})
     st.session_state.comidas_registradas_por_usuario[usuario_email] = datos_usuario.get("comidas_registradas", [])
+    st.session_state.registro_peso_por_usuario[usuario_email] = datos_usuario.get("registro_peso", [])
     st.session_state.datos_cargados_para = usuario_email
-
+ 
 def guardar_datos_usuario_actual():
     """Guarda en disco los datos del usuario logueado (invitados no se guardan)."""
     if not usuario_email:
@@ -179,30 +186,35 @@ def guardar_datos_usuario_actual():
     todos_los_datos = cargar_todos_los_datos()
     todos_los_datos[usuario_email] = {
         "alimentos_personalizados": st.session_state.alimentos_personalizados.get(usuario_email, {}),
-        "comidas_registradas": st.session_state.comidas_registradas_por_usuario.get(usuario_email, [])
+        "comidas_registradas": st.session_state.comidas_registradas_por_usuario.get(usuario_email, []),
+        "registro_peso": st.session_state.registro_peso_por_usuario.get(usuario_email, [])
     }
     guardar_todos_los_datos(todos_los_datos)
-
+ 
 # Referencias activas según si hay sesión o es invitado
 if usuario_email:
     if usuario_email not in st.session_state.alimentos_personalizados:
         st.session_state.alimentos_personalizados[usuario_email] = {}
     if usuario_email not in st.session_state.comidas_registradas_por_usuario:
         st.session_state.comidas_registradas_por_usuario[usuario_email] = []
+    if usuario_email not in st.session_state.registro_peso_por_usuario:
+        st.session_state.registro_peso_por_usuario[usuario_email] = []
     alimentos_propios = st.session_state.alimentos_personalizados[usuario_email]
     lista_comidas = st.session_state.comidas_registradas_por_usuario[usuario_email]
+    registro_peso = st.session_state.registro_peso_por_usuario[usuario_email]
 else:
     alimentos_propios = {}
     lista_comidas = st.session_state.comidas_registradas_invitado
-
+    registro_peso = st.session_state.registro_peso_invitado
+ 
 # --- PASO 1: SELECCIÓN DE IDIOMA Y LOGIN REAL CON GOOGLE ---
 if "idioma" not in st.session_state:
     st.session_state.idioma = None
-
+ 
 if st.session_state.idioma is None:
     mostrar_logo("Select your language / Selecciona tu idioma")
     st.write("Por favor, elige tu idioma para continuar:")
-
+ 
     col_lang1, col_lang2 = st.columns(2)
     with col_lang1:
         if st.button("🇪🇸 Español", use_container_width=True):
@@ -212,10 +224,10 @@ if st.session_state.idioma is None:
         if st.button("🇺🇸 English (US)", use_container_width=True):
             st.session_state.idioma = "en"
             st.rerun()
-
+ 
     st.markdown("---")
     st.write("¿Tienes una cuenta de Google y quieres desbloquear tu menú personalizado guardado para siempre?")
-
+ 
     if usuario_email:
         st.success(f"✅ Ya iniciaste sesión como **{usuario_nombre}** ({usuario_email})")
         if st.button("Cerrar sesión"):
@@ -223,20 +235,20 @@ if st.session_state.idioma is None:
     else:
         st.button("🔐 Iniciar sesión con Google", use_container_width=True, on_click=st.login)
         st.caption("Google se encarga de validar tu identidad y tu contraseña. Esta app nunca las ve ni las guarda; solo recibimos tu nombre y correo una vez que inicias sesión.")
-
+ 
     st.stop()
-
+ 
 # --- PASO 2: PREGUNTA DE NACIONALIDAD Y MODO PRESUPUESTO (SOLO SI ES ESPAÑOL/CHILE) ---
 if "es_chileno" not in st.session_state:
     st.session_state.es_chileno = None
-
+ 
 if "modo_presupuesto" not in st.session_state:
     st.session_state.modo_presupuesto = None
-
+ 
 if st.session_state.es_chileno is None and st.session_state.idioma == "es":
     mostrar_logo("Verificación de nacionalidad")
     st.write("¿Eres de Chile?")
-
+ 
     col_ch1, col_ch2 = st.columns(2)
     with col_ch1:
         if st.button("Sí, soy de Chile", use_container_width=True):
@@ -248,11 +260,11 @@ if st.session_state.es_chileno is None and st.session_state.idioma == "es":
             st.session_state.modo_presupuesto = False
             st.rerun()
     st.stop()
-
+ 
 if st.session_state.es_chileno and st.session_state.modo_presupuesto is None and st.session_state.idioma == "es":
-    st.title("🛒 Modo de Presupuesto Reducido")
+    mostrar_logo("Modo de Presupuesto Reducido")
     st.write("¿Quieres usar el **modo de presupuesto reducido**? Este modo intentará buscar opciones más baratas, saludables y acorde a tus gustos posibles para alcanzar tu objetivo.")
-
+ 
     col_p1, col_p2 = st.columns(2)
     with col_p1:
         if st.button("Sí, activar modo presupuesto", use_container_width=True):
@@ -263,20 +275,20 @@ if st.session_state.es_chileno and st.session_state.modo_presupuesto is None and
             st.session_state.modo_presupuesto = False
             st.rerun()
     st.stop()
-
+ 
 # Panel de presupuesto reducido (Chile)
 if st.session_state.get("modo_presupuesto", False):
     mostrar_logo("💡 Panel de Presupuesto Reducido (Chile)")
     st.write("Aquí tienes tus opciones inteligentes basadas en tu presupuesto diario para cumplir tus macros sin gastar de más.")
-
+ 
     presupuesto_diario = st.number_input("Ingresa tu presupuesto diario disponible (en pesos chilenos - CLP):", min_value=1000, value=6000, step=500)
     tipo_comida_select = st.text_input("¿Qué comida deseas planificar?", value="Desayuno / Once")
-
+ 
     st.markdown("---")
     st.subheader(f"🛒 Opciones para tu {tipo_comida_select} (Presupuesto: ${presupuesto_diario} CLP)")
-
+ 
     es_desayuno_once = any(term in tipo_comida_select.lower() for term in ["desayuno", "once", "once/desayuno"])
-
+ 
     if es_desayuno_once:
         if presupuesto_diario <= 5000:
             opcion_sana = "Té o café con 1 pan marraqueta o hallulla tostada con huevo revuelto o quesillo (~$600)"
@@ -303,18 +315,18 @@ if st.session_state.get("modo_presupuesto", False):
             opcion_sana = "Salmón o atún fresco con camote al horno y verduras salteadas (~$9.000)"
             opcion_inter = "Lomo vetado o posta rosada con papas doradas y ensalada a elección (~$8.500)"
             opcion_relajada = "Promoción de sushi para uno o porción de pizza local (~$10.000)"
-
+ 
     st.success(f"🌱 **Opción 1 (Bastante sana acorde al presupuesto):**\n- {opcion_sana}")
     st.info(f"⚖️ **Opción 2 (Punto intermedio equilibrado):**\n- {opcion_inter}")
     st.warning(f"🍕 **Opción 3 (No tan sana, pero encaja en calorías y presupuesto):**\n- {opcion_relajada}")
-
+ 
     st.markdown("---")
     if st.button("🔄 Volver / Ir a la Calculadora Normal de Calorías"):
         st.session_state.modo_presupuesto = False
         st.rerun()
-
+ 
     st.stop()
-
+ 
 # --- PASO 3: DICCIONARIOS DE TEXTOS SEGÚN EL IDIOMA ---
 textos = {
     "es": {
@@ -325,8 +337,7 @@ textos = {
         "sexo": "Sexo",
         "opciones_sexo": ["Masculino", "Femenino"],
         "edad": "Edad (años)",
-        "peso_ideal": "¿Cuál sería tu peso ideal (kg)?",
-        "meses_meta": "¿En cuántos meses esperas obtenerlo?",
+        "peso_ideal": "¿Cuál es tu peso objetivo (kg)?",
         "armar_plato": "🍽️ Armar Plato Actual",
         "texto_plato": "Escribe tu plato (ej: empanadas juanito o arroz con pollo):",
         "btn_guardar": "📥 Guardar esta comida en el registro mensual",
@@ -342,12 +353,6 @@ textos = {
         "ingresa_plato": "Escribe tu plato en la barra lateral para comenzar a calcular.",
         "alimento_encontrado": "¡'{item}' encontrado!",
         "alimento_no_encontrado": "No encontré ese alimento en tu base ni en internet.",
-        "cambio_deficit": "Debes comer unos **{val:.0f} kcal menos** al día.",
-        "meta_deficit": "Meta diaria sugerida (Déficit):",
-        "cambio_superavit": "Debes comer unos **{val:.0f} kcal más** al día.",
-        "meta_superavit": "Meta diaria sugerida (Volumen):",
-        "mantenimiento": "Mantenimiento: Tu peso ideal es igual al actual.",
-        "meta_mant": "Meta diaria sugerida:",
         "cheat_header": "🚨 Detector de Excesos / Cheat Meals del Mes",
         "cheat_checkbox": "¡Hubo descontrol o Cheat Meals acumulados en el mes!",
         "cheat_slider": "Estímese el exceso total aproximado en el mes (kcal extra):",
@@ -361,8 +366,7 @@ textos = {
         "sexo": "Gender",
         "opciones_sexo": ["Male", "Female"],
         "edad": "Age (years)",
-        "peso_ideal": "What would be your ideal weight (kg)?",
-        "meses_meta": "In how many months do you expect to reach it?",
+        "peso_ideal": "What is your target weight (kg)?",
         "armar_plato": "🍽️ Build Current Meal",
         "texto_plato": "Type your meal (e.g., empanadas juanito or rice):",
         "btn_guardar": "📥 Save this meal to the month",
@@ -378,33 +382,28 @@ textos = {
         "ingresa_plato": "Type your meal in the sidebar to start calculating.",
         "alimento_encontrado": "'{item}' found!",
         "alimento_no_encontrado": "I couldn't find that food in your database or on the web.",
-        "cambio_deficit": "You should eat about **{val:.0f} fewer kcal** per day.",
-        "meta_deficit": "Suggested daily target (Deficit):",
-        "cambio_superavit": "You should eat about **{val:.0f} more kcal** per day.",
-        "meta_superavit": "Suggested daily target (Surplus):",
-        "mantenimiento": "Maintenance: Your ideal weight matches your current one.",
-        "meta_mant": "Suggested daily target:",
         "cheat_header": "🚨 Excess / Monthly Cheat Meals Detector",
         "cheat_checkbox": "Extreme loss of control / Monthly Cheat Meals!",
         "cheat_slider": "Estimate approximate total excess (extra kcal):",
         "nombre_en_uso": "⚠️ That name is already in use. Use a different name to avoid confusion."
     }
 }
-
+ 
 t = textos[st.session_state.idioma]
-
+idioma = st.session_state.idioma
+ 
 mostrar_logo(t["titulo"])
-
+ 
 if st.sidebar.button("🌐 Cambiar Idioma"):
     st.session_state.idioma = None
     st.session_state.es_chileno = None
     st.session_state.modo_presupuesto = None
     st.rerun()
-
+ 
 # --- Fusión de base de datos global con los alimentos personalizados del usuario activo ---
 base_datos_calorias = base_datos_global.copy()
 base_datos_calorias.update(alimentos_propios)
-
+ 
 def buscar_alimento_internet(nombre_alimento):
     try:
         url = f"https://world.openfoodfacts.org/cgi/search.pl?search_terms={nombre_alimento}&search_simple=1&action=process&json=1"
@@ -417,7 +416,7 @@ def buscar_alimento_internet(nombre_alimento):
                     nutriments = p.get("nutriments", {})
                     calorias = nutriments.get("energy-kcal_100g") or nutriments.get("energy-kcal")
                     proteinas = nutriments.get("proteins_100g") or nutriments.get("proteins")
-
+ 
                     if calorias is not None and proteinas is not None:
                         return {
                             "calorias": float(calorias),
@@ -426,7 +425,17 @@ def buscar_alimento_internet(nombre_alimento):
     except Exception:
         pass
     return None
-
+ 
+# ==================================================================
+# PLANES DE TIEMPO REALISTAS PARA LA META DE PESO
+# ==================================================================
+PLANES_TIEMPO = {
+    "corto":  {"es": "Corto plazo (3-4 semanas)", "en": "Short term (3-4 weeks)", "semanas": 4,  "max_kg": 3},
+    "3m":     {"es": "3 meses",                     "en": "3 months",              "semanas": 13, "max_kg": 8},
+    "6m":     {"es": "6 meses",                     "en": "6 months",              "semanas": 26, "max_kg": 15},
+    "1a":     {"es": "1 año",                        "en": "1 year",                "semanas": 52, "max_kg": 26},
+}
+ 
 # --- APARTADO DE METAS Y PERFIL EN LA BARRA LATERAL ---
 st.sidebar.header(t["sidebar_meta"])
 if usuario_email:
@@ -436,16 +445,19 @@ if usuario_email:
 else:
     st.sidebar.info("🔒 Estás como invitado. Tus datos se perderán al cerrar la app.")
     st.sidebar.button("🔐 Iniciar sesión con Google", on_click=st.login, use_container_width=True)
-
-peso_actual = st.sidebar.number_input(t["peso_actual"], min_value=30.0, value=75.0, step=0.5)
+ 
+if "peso_actual_input" not in st.session_state:
+    st.session_state.peso_actual_input = registro_peso[-1]["peso"] if registro_peso else 75.0
+ 
+peso_actual = st.sidebar.number_input(t["peso_actual"], min_value=30.0, step=0.5, key="peso_actual_input")
 altura_cm = st.sidebar.number_input(t["altura"], min_value=100.0, value=175.0, step=1.0)
 sexo = st.sidebar.selectbox(t["sexo"], t["opciones_sexo"])
 edad = st.sidebar.number_input(t["edad"], min_value=10, max_value=120, value=18, step=1)
-
+ 
 altura_m = altura_cm / 100.0
 imc = peso_actual / (altura_m ** 2)
-
-if st.session_state.idioma == "es":
+ 
+if idioma == "es":
     if imc < 18.5: clasificacion_imc = "Bajo peso"
     elif 18.5 <= imc < 25: clasificacion_imc = "Peso normal (saludable)"
     elif 25 <= imc < 30: clasificacion_imc = "Sobrepeso"
@@ -457,92 +469,140 @@ else:
     elif 25 <= imc < 30: clasificacion_imc = "Overweight"
     else: clasificacion_imc = "Obesity"
     st.sidebar.markdown(f"📊 **BMI:** {imc:.1f} ({clasificacion_imc})")
-
+ 
 st.sidebar.markdown("---")
-
+ 
 peso_ideal = st.sidebar.number_input(t["peso_ideal"], min_value=30.0, value=70.0, step=0.5)
-meses_meta = st.sidebar.number_input(t["meses_meta"], min_value=1, value=3, step=1)
-
+ 
+opciones_plazo_keys = list(PLANES_TIEMPO.keys())
+opciones_plazo_labels = [PLANES_TIEMPO[k][idioma] for k in opciones_plazo_keys]
+plazo_elegido_label = st.sidebar.selectbox(
+    "¿En cuánto tiempo quieres lograrlo? (plazo realista)" if idioma == "es" else "How soon do you want to reach it? (realistic timeframe)",
+    opciones_plazo_labels
+)
+plazo_key = opciones_plazo_keys[opciones_plazo_labels.index(plazo_elegido_label)]
+plan = PLANES_TIEMPO[plazo_key]
+semanas_periodo = plan["semanas"]
+max_kg_periodo = plan["max_kg"]
+ 
 mantenimiento_estimado = peso_actual * 30
-diferencia_peso = peso_actual - peso_ideal
-total_dias_meta = meses_meta * 30
-
-if diferencia_peso > 0:
-    calorias_totales_cambio = diferencia_peso * 7700
-    cambio_diario = calorias_totales_cambio / total_dias_meta
+diferencia_deseada = peso_actual - peso_ideal
+ 
+recortado = False
+if diferencia_deseada > max_kg_periodo:
+    kg_meta_periodo = max_kg_periodo
+    recortado = True
+elif diferencia_deseada < -max_kg_periodo:
+    kg_meta_periodo = -max_kg_periodo
+    recortado = True
+else:
+    kg_meta_periodo = diferencia_deseada
+ 
+dias_periodo = semanas_periodo * 7
+ 
+if kg_meta_periodo > 0:
+    cambio_diario = (kg_meta_periodo * 7700) / dias_periodo
     meta_calorias_diarias = mantenimiento_estimado - cambio_diario
-    st.sidebar.markdown(f"📉 {t['cambio_deficit'].format(val=cambio_diario)}")
-    st.sidebar.markdown(f"🎯 **{t['meta_deficit']}** ~**{meta_calorias_diarias:.0f} kcal/día**")
-elif diferencia_peso < 0:
-    kilos_a_subir = abs(diferencia_peso)
-    calorias_totales_cambio = kilos_a_subir * 7700
-    cambio_diario = calorias_totales_cambio / total_dias_meta
+    if idioma == "es":
+        st.sidebar.markdown(f"📉 Para este plazo, debes comer unos **{cambio_diario:.0f} kcal menos** al día.")
+    else:
+        st.sidebar.markdown(f"📉 For this timeframe, eat about **{cambio_diario:.0f} fewer kcal** per day.")
+elif kg_meta_periodo < 0:
+    cambio_diario = (abs(kg_meta_periodo) * 7700) / dias_periodo
     meta_calorias_diarias = mantenimiento_estimado + cambio_diario
-    st.sidebar.markdown(f"📈 {t['cambio_superavit'].format(val=cambio_diario)}")
-    st.sidebar.markdown(f"🎯 **{t['meta_superavit']}** ~**{meta_calorias_diarias:.0f} kcal/día**")
+    if idioma == "es":
+        st.sidebar.markdown(f"📈 Para este plazo, debes comer unos **{cambio_diario:.0f} kcal más** al día.")
+    else:
+        st.sidebar.markdown(f"📈 For this timeframe, eat about **{cambio_diario:.0f} more kcal** per day.")
 else:
     meta_calorias_diarias = mantenimiento_estimado
-    st.sidebar.markdown(f"⚖️ {t['mantenimiento']}")
-    st.sidebar.markdown(f"🎯 **{t['meta_mant']}** ~**{meta_calorias_diarias:.0f} kcal/día**")
-
+    cambio_diario = 0
+    st.sidebar.markdown("⚖️ " + ("Mantenimiento: tu peso objetivo es igual al actual." if idioma == "es" else "Maintenance: your target weight matches your current one."))
+ 
+st.sidebar.markdown(f"🎯 " + (f"**Meta diaria sugerida:** ~**{meta_calorias_diarias:.0f} kcal/día**" if idioma == "es" else f"**Suggested daily target:** ~**{meta_calorias_diarias:.0f} kcal/day**"))
+ 
+if recortado:
+    if idioma == "es":
+        st.sidebar.warning(
+            f"⚠️ Tu meta final ({abs(diferencia_deseada):.1f} kg) no es segura de lograr completa en este plazo. "
+            f"Para que sea realista, en este período ajustamos tu objetivo a **{abs(kg_meta_periodo):.1f} kg**. "
+            f"El resto lo seguirás logrando en los siguientes períodos."
+        )
+    else:
+        st.sidebar.warning(
+            f"⚠️ Your full goal ({abs(diferencia_deseada):.1f} kg) isn't safe to reach entirely in this timeframe. "
+            f"For this period we adjusted it to a realistic **{abs(kg_meta_periodo):.1f} kg**. "
+            f"You'll keep working toward the rest in the following periods."
+        )
+ 
 meta_calorias_mensual = meta_calorias_diarias * 30
-st.sidebar.markdown(f"📅 **Meta Mensual Total (30 días):** ~**{meta_calorias_mensual:.0f} kcal**")
-
+st.sidebar.markdown(f"📅 " + (f"**Meta Mensual Total (30 días):** ~**{meta_calorias_mensual:.0f} kcal**" if idioma == "es" else f"**Total Monthly Goal (30 days):** ~**{meta_calorias_mensual:.0f} kcal**"))
+ 
+# Guardamos el plan activo en sesión para que la revisión semanal lo use
+st.session_state.plan_activo = {
+    "semanas": semanas_periodo,
+    "kg_meta_periodo": kg_meta_periodo,
+    "meta_calorias_diarias": meta_calorias_diarias,
+    "peso_objetivo": peso_ideal
+}
+ 
 st.sidebar.markdown("---")
-
+ 
 st.sidebar.header(t["cheat_header"])
 activar_cheat = st.sidebar.checkbox(t["cheat_checkbox"])
 calorias_cheat_extra = 0
 if activar_cheat:
     calorias_cheat_extra = st.sidebar.number_input(t["cheat_slider"], min_value=1000, max_value=20000, value=5000, step=500)
-
+ 
 st.sidebar.markdown("---")
 st.sidebar.header(t["armar_plato"])
-
+ 
 texto_ingresado = st.sidebar.text_input(t["texto_plato"]).lower().strip()
-
+ 
 calorias_plato_actual = 0
 proteinas_plato_actual = 0
 detalle_plato = {}
-
+ 
 if texto_ingresado:
     alimentos_encontrados = []
     for alimento in base_datos_calorias.keys():
         if alimento in texto_ingresado:
             alimentos_encontrados.append(alimento)
-
+ 
     if not alimentos_encontrados and texto_ingresado:
-        with st.spinner("Buscando..." if st.session_state.idioma == "es" else "Searching..."):
+        with st.spinner("Buscando..." if idioma == "es" else "Searching..."):
             info_web = buscar_alimento_internet(texto_ingresado)
             if info_web:
                 base_datos_calorias[texto_ingresado] = info_web
                 alimentos_encontrados.append(texto_ingresado)
                 st.sidebar.success(t["alimento_encontrado"].format(item=texto_ingresado))
-
+ 
     if alimentos_encontrados:
         st.sidebar.markdown("---")
-        st.sidebar.write("**Ajusta las cantidades (g o ml):**" if st.session_state.idioma == "es" else "**Adjust quantities (g or ml):**")
-
+        st.sidebar.write("**Ajusta las cantidades (g o ml):**" if idioma == "es" else "**Adjust quantities (g or ml):**")
+ 
         for alimento in alimentos_encontrados:
             cantidad = st.sidebar.number_input(
-                f"Cantidad de {alimento}:" if st.session_state.idioma == "es" else f"Amount of {alimento}:", 
-                min_value=0.0, 
-                value=100.0, 
-                step=10.0, 
+                f"Cantidad de {alimento}:" if idioma == "es" else f"Amount of {alimento}:",
+                min_value=0.0,
+                value=100.0,
+                step=10.0,
                 key=f"qty_{alimento}"
             )
-
+ 
             cal_100 = base_datos_calorias[alimento]["calorias"]
             prot_100 = base_datos_calorias[alimento]["proteinas"]
-
+ 
             cal_total = (cal_100 * cantidad) / 100
             prot_total = (prot_100 * cantidad) / 100
-
+ 
             calorias_plato_actual += cal_total
             proteinas_plato_actual += prot_total
             detalle_plato[alimento] = cantidad
-
-        nombre_comida = st.sidebar.text_input("Nombre de esta comida (ej. Almuerzo del 12):" if st.session_state.idioma == "es" else "Meal name (e.g. Lunch on the 12th):", value="Comida")
+ 
+        nombre_comida = st.sidebar.text_input("Nombre de esta comida (ej. Almuerzo del 12):" if idioma == "es" else "Meal name (e.g. Lunch on the 12th):", value="Comida")
+        fecha_comida = st.sidebar.date_input("Fecha de esta comida:" if idioma == "es" else "Date of this meal:", value=datetime.date.today())
+ 
         if st.sidebar.button(t["btn_guardar"]):
             nombres_existentes = [c["nombre"].strip().lower() for c in lista_comidas]
             if nombre_comida.strip().lower() in nombres_existentes:
@@ -552,39 +612,40 @@ if texto_ingresado:
                     "nombre": nombre_comida,
                     "calorias": calorias_plato_actual,
                     "proteinas": proteinas_plato_actual,
-                    "detalle": detalle_plato
+                    "detalle": detalle_plato,
+                    "fecha": fecha_comida.isoformat()
                 })
                 guardar_datos_usuario_actual()
-                st.sidebar.success("¡Guardado en el mes!" if st.session_state.idioma == "es" else "Saved to the month!")
+                st.sidebar.success("¡Guardado en el mes!" if idioma == "es" else "Saved to the month!")
     else:
         st.sidebar.warning(t["alimento_no_encontrado"])
-
+ 
 # --- PANTALLA PRINCIPAL ---
 st.subheader(t["resumen_plato"])
-
+ 
 if detalle_plato:
     for alim, cant in detalle_plato.items():
         c_parcial = (base_datos_calorias[alim]["calorias"] * cant) / 100
         p_parcial = (base_datos_calorias[alim]["proteinas"] * cant) / 100
         st.write(f"- **{cant}g** de {alim} -> {c_parcial:.1f} kcal | {p_parcial:.1f}g prot")
-
+ 
     st.markdown("---")
     col1, col2 = st.columns(2)
     with col1:
-        st.metric("Calorías del Plato" if st.session_state.idioma == "es" else "Meal Calories", f"{calorias_plato_actual:.1f} kcal")
+        st.metric("Calorías del Plato" if idioma == "es" else "Meal Calories", f"{calorias_plato_actual:.1f} kcal")
     with col2:
-        st.metric("Proteínas del Plato" if st.session_state.idioma == "es" else "Meal Protein", f"{proteinas_plato_actual:.1f} g")
+        st.metric("Proteínas del Plato" if idioma == "es" else "Meal Protein", f"{proteinas_plato_actual:.1f} g")
 else:
     st.info(t["ingresa_plato"])
-
+ 
 st.markdown("---")
-
+ 
 # --- SECCIÓN: CREAR ALIMENTOS PERSONALIZADOS (SOLO SI HAY SESIÓN INICIADA CON GOOGLE) ---
 st.subheader("⭐ Mis Alimentos Personalizados (Exclusivo de tu Cuenta)")
-
+ 
 if usuario_email is not None:
     st.success(f"🔓 Hola **{usuario_nombre}**: Aquí puedes registrar platos específicos (ej. *empanadas juanito*) para que solo aparezcan en tu buscador. Se guardan permanentemente en tu cuenta.")
-
+ 
     with st.form("form_alimento_personalizado"):
         nuevo_nombre = st.text_input("Nombre del plato o producto (ej: empanadas juanito):").lower().strip()
         col_p1, col_p2 = st.columns(2)
@@ -592,14 +653,13 @@ if usuario_email is not None:
             cal_por_100 = st.number_input("Calorías por cada 100g o 100ml:", min_value=0.0, value=250.0, step=5.0)
         with col_p2:
             prot_por_100 = st.number_input("Proteínas (g) por cada 100g o 100ml:", min_value=0.0, value=10.0, step=0.5)
-
+ 
         submit_personalizado = st.form_submit_button("➕ Guardar en mi cuenta")
-
+ 
         if submit_personalizado and nuevo_nombre:
             if nuevo_nombre in alimentos_propios:
                 st.error(t["nombre_en_uso"])
             else:
-                # Guardamos el alimento en el espacio privado y persistente del usuario
                 alimentos_propios[nuevo_nombre] = {
                     "calorias": cal_por_100,
                     "proteinas": prot_por_100
@@ -607,23 +667,78 @@ if usuario_email is not None:
                 guardar_datos_usuario_actual()
                 st.success(f"¡'{nuevo_nombre}' ha sido agregado a tu lista personal! Ya puedes buscarlo en la barra lateral.")
                 st.rerun()
-
-    # Mostrar alimentos que ya haya registrado el usuario actual
+ 
     if alimentos_propios:
         st.write("📋 **Tus alimentos guardados actualmente:**")
         for ali, info in alimentos_propios.items():
             st.text(f"• {ali} -> {info['calorias']} kcal | {info['proteinas']}g prot (por 100g)")
 else:
     st.info("🔒 **¿Quieres agregar tus propios platos (como las empanadas de tu local favorito)?** Inicia sesión con Google (botón en la barra lateral) para desbloquear tu espacio personal, guardado permanentemente en tu cuenta.")
-
+ 
 st.markdown("---")
-
+ 
+# ==================================================================
+# NUEVA SECCIÓN: SEGUIMIENTO DE PESO (hasta 1 año, solo con sesión)
+# ==================================================================
+st.subheader("📈 Seguimiento de Peso (Progreso Mes a Mes)" if idioma == "es" else "📈 Weight Tracking (Month-by-Month Progress)")
+ 
+if usuario_email is not None:
+    st.write("Registra tu peso cada cierto tiempo (ideal: 1 vez por semana o por mes) para ver tu progreso real a lo largo de hasta un año." if idioma == "es"
+              else "Log your weight periodically (ideally weekly or monthly) to see your real progress over up to a year.")
+ 
+    col_rp1, col_rp2, col_rp3 = st.columns([2, 2, 1])
+    with col_rp1:
+        fecha_peso_nuevo = st.date_input("Fecha del registro:" if idioma == "es" else "Entry date:", value=datetime.date.today(), key="fecha_peso_nuevo")
+    with col_rp2:
+        peso_nuevo_valor = st.number_input("Peso en esa fecha (kg):" if idioma == "es" else "Weight on that date (kg):", min_value=30.0, value=float(peso_actual), step=0.5, key="peso_nuevo_valor")
+    with col_rp3:
+        st.write("")
+        st.write("")
+        if st.button("💾 Guardar" if idioma == "es" else "💾 Save", key="btn_guardar_peso"):
+            fecha_iso = fecha_peso_nuevo.isoformat()
+            registro_existente = next((r for r in registro_peso if r["fecha"] == fecha_iso), None)
+            if registro_existente:
+                registro_existente["peso"] = peso_nuevo_valor
+            else:
+                registro_peso.append({"fecha": fecha_iso, "peso": peso_nuevo_valor})
+            registro_peso.sort(key=lambda r: r["fecha"])
+            # Mantener solo el último año de datos
+            un_año_atras = (datetime.date.today() - datetime.timedelta(days=365)).isoformat()
+            registro_peso[:] = [r for r in registro_peso if r["fecha"] >= un_año_atras]
+            guardar_datos_usuario_actual()
+            st.success("¡Peso guardado!" if idioma == "es" else "Weight saved!")
+            st.rerun()
+ 
+    if registro_peso:
+        df_peso = pd.DataFrame(registro_peso)
+        df_peso["fecha"] = pd.to_datetime(df_peso["fecha"])
+        df_peso = df_peso.set_index("fecha").sort_index()
+        st.line_chart(df_peso["peso"])
+ 
+        with st.expander("📋 " + ("Ver y borrar registros individuales" if idioma == "es" else "View and delete individual entries")):
+            for i, r in enumerate(sorted(registro_peso, key=lambda x: x["fecha"], reverse=True)):
+                col_a, col_b = st.columns([4, 1])
+                with col_a:
+                    st.text(f"{r['fecha']}: {r['peso']} kg")
+                with col_b:
+                    if st.button("❌", key=f"del_peso_{r['fecha']}_{i}"):
+                        registro_peso[:] = [x for x in registro_peso if x["fecha"] != r["fecha"]]
+                        guardar_datos_usuario_actual()
+                        st.rerun()
+    else:
+        st.info("Aún no tienes registros de peso. ¡Agrega el primero arriba!" if idioma == "es" else "No weight entries yet. Add your first one above!")
+else:
+    st.info("🔒 Inicia sesión con Google para guardar tu progreso de peso mes a mes durante todo un año." if idioma == "es"
+             else "🔒 Log in with Google to save your month-by-month weight progress for a full year.")
+ 
+st.markdown("---")
+ 
 # --- MODO: CALCULADORA DE AGUA Y PASOS ---
 st.subheader("💧 Activador de Calculadora de Hidratación y Pasos")
-
+ 
 if "activar_calculadora_agua" not in st.session_state:
     st.session_state.activar_calculadora_agua = False
-
+ 
 col_btn_agua1, col_btn_agua2 = st.columns(2)
 with col_btn_agua1:
     if st.button("💧 Activar Calculadora de Agua y Pasos", use_container_width=True):
@@ -633,10 +748,10 @@ with col_btn_agua2:
     if st.button("❌ Desactivar Calculadora de Agua y Pasos", use_container_width=True):
         st.session_state.activar_calculadora_agua = False
         st.rerun()
-
+ 
 if st.session_state.activar_calculadora_agua:
     st.info("✨ ¡Modo de salud y movimiento activado! Selecciona tu nivel de actividad física para calcular tu agua y pasos recomendados:")
-
+ 
     nivel_actividad_agua = st.selectbox(
         "¿Cuál es tu nivel de actividad física?",
         [
@@ -646,37 +761,37 @@ if st.session_state.activar_calculadora_agua:
         ],
         key="select_actividad_agua"
     )
-
+ 
     if st.button("🧮 Calcular mis metas diarias", use_container_width=True):
         ml_base = peso_actual * 35
         if sexo == "Masculino":
             ml_base += 200
-
+ 
         if "No hago" in nivel_actividad_agua:
             extra_actividad_agua = 0
         elif "2 veces" in nivel_actividad_agua:
             extra_actividad_agua = 400
         else:
             extra_actividad_agua = 800
-
+ 
         total_agua_ml = ml_base + extra_actividad_agua
         total_agua_litros = total_agua_ml / 1000
         vasos_estandar = round(total_agua_ml / 250)
-
+ 
         if "No hago" in nivel_actividad_agua:
             pasos_base = 6500
         elif "2 veces" in nivel_actividad_agua:
             pasos_base = 8500
         else:
             pasos_base = 11000
-
+ 
         if edad < 30:
             pasos_base += 500
         if sexo == "Masculino":
             pasos_base += 300
-
+ 
         st.success(f"🎯 **Resultados personalizados para ti ({peso_actual} kg | {edad} años | {sexo}):**")
-        
+ 
         col_res1, col_res2 = st.columns(2)
         with col_res1:
             st.metric("Litros de Agua Recomendados", f"{total_agua_litros:.2f} L")
@@ -684,17 +799,136 @@ if st.session_state.activar_calculadora_agua:
         with col_res2:
             st.metric("Meta de Pasos Diarios", f"{pasos_base:,} pasos".replace(",", "."))
             st.write(f"🚶‍♂️ Ideal para mantener tu nivel de actividad.")
-
+ 
 st.markdown("---")
-
+ 
+# ==================================================================
+# NUEVA SECCIÓN: REVISIÓN SEMANAL (calorías/proteínas por día + reajuste)
+# ==================================================================
+st.subheader("📅 Revisión Semanal" if idioma == "es" else "📅 Weekly Review")
+ 
+if "semana_offset" not in st.session_state:
+    st.session_state.semana_offset = 0
+ 
+col_sem1, col_sem2, col_sem3 = st.columns([1, 2, 1])
+with col_sem1:
+    if st.button("⬅️ " + ("Anterior" if idioma == "es" else "Previous"), key="semana_anterior"):
+        st.session_state.semana_offset -= 1
+        st.rerun()
+with col_sem3:
+    if st.session_state.semana_offset < 0:
+        if st.button(("Siguiente" if idioma == "es" else "Next") + " ➡️", key="semana_siguiente"):
+            st.session_state.semana_offset += 1
+            st.rerun()
+ 
+hoy = datetime.date.today()
+lunes_actual = hoy - datetime.timedelta(days=hoy.weekday())
+lunes_semana = lunes_actual + datetime.timedelta(weeks=st.session_state.semana_offset)
+dias_semana_dates = [lunes_semana + datetime.timedelta(days=i) for i in range(7)]
+ 
+nombres_dias_es = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
+nombres_dias_en = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+nombres_dias = nombres_dias_es if idioma == "es" else nombres_dias_en
+ 
+with col_sem2:
+    st.markdown(f"<p style='text-align:center; margin-top:8px;'><b>{dias_semana_dates[0].strftime('%d/%m')} — {dias_semana_dates[-1].strftime('%d/%m/%Y')}</b></p>", unsafe_allow_html=True)
+ 
+calorias_por_dia = {d.isoformat(): 0.0 for d in dias_semana_dates}
+proteinas_por_dia = {d.isoformat(): 0.0 for d in dias_semana_dates}
+ 
+for comida in lista_comidas:
+    fecha_c = comida.get("fecha")
+    if fecha_c in calorias_por_dia:
+        calorias_por_dia[fecha_c] += comida["calorias"]
+        proteinas_por_dia[fecha_c] += comida["proteinas"]
+ 
+dias_con_datos = sum(1 for d in dias_semana_dates if calorias_por_dia[d.isoformat()] > 0)
+ 
+df_semana = pd.DataFrame({
+    "Día" if idioma == "es" else "Day": nombres_dias,
+    "Calorías" if idioma == "es" else "Calories": [calorias_por_dia[d.isoformat()] for d in dias_semana_dates],
+    "Proteínas (g)" if idioma == "es" else "Protein (g)": [proteinas_por_dia[d.isoformat()] for d in dias_semana_dates]
+})
+st.dataframe(df_semana, use_container_width=True, hide_index=True)
+ 
+col_chart1, col_chart2 = st.columns(2)
+with col_chart1:
+    st.bar_chart(df_semana.set_index("Día" if idioma == "es" else "Day")[["Calorías" if idioma == "es" else "Calories"]])
+with col_chart2:
+    st.bar_chart(df_semana.set_index("Día" if idioma == "es" else "Day")[["Proteínas (g)" if idioma == "es" else "Protein (g)"]])
+ 
+if dias_con_datos > 0:
+    total_cal_semana = sum(calorias_por_dia.values())
+    total_prot_semana = sum(proteinas_por_dia.values())
+    promedio_diario_real = total_cal_semana / dias_con_datos
+ 
+    plan_activo = st.session_state.get("plan_activo", {})
+    meta_diaria_plan = plan_activo.get("meta_calorias_diarias", meta_calorias_diarias)
+    kg_meta_periodo_plan = plan_activo.get("kg_meta_periodo", 0)
+    semanas_plan = plan_activo.get("semanas", 1)
+ 
+    diferencia_vs_meta = promedio_diario_real - meta_diaria_plan
+    cambio_peso_estimado_semana = (diferencia_vs_meta * 7) / 7700
+    cambio_peso_planeado_semana = kg_meta_periodo_plan / semanas_plan if semanas_plan else 0
+ 
+    col_rs1, col_rs2, col_rs3 = st.columns(3)
+    with col_rs1:
+        st.metric("Promedio diario real" if idioma == "es" else "Real daily average", f"{promedio_diario_real:.0f} kcal")
+    with col_rs2:
+        st.metric("Meta diaria del plan" if idioma == "es" else "Plan's daily target", f"{meta_diaria_plan:.0f} kcal")
+    with col_rs3:
+        signo = "+" if cambio_peso_estimado_semana > 0 else ""
+        st.metric("Cambio de peso estimado" if idioma == "es" else "Estimated weight change", f"{signo}{cambio_peso_estimado_semana:.2f} kg")
+ 
+    if idioma == "es":
+        st.write(f"Según tu plan, esta semana deberías cambiar aproximadamente **{cambio_peso_planeado_semana:+.2f} kg**. "
+                 f"Según lo que registraste, el cambio estimado es de **{cambio_peso_estimado_semana:+.2f} kg**.")
+    else:
+        st.write(f"According to your plan, this week you should change about **{cambio_peso_planeado_semana:+.2f} kg**. "
+                 f"Based on what you logged, the estimated change is **{cambio_peso_estimado_semana:+.2f} kg**.")
+ 
+    # Comparar con peso real ingresado (si existe en el registro de peso)
+    entradas_en_semana = [r for r in registro_peso if dias_semana_dates[0].isoformat() <= r["fecha"] <= dias_semana_dates[-1].isoformat()]
+    entradas_antes = [r for r in registro_peso if r["fecha"] < dias_semana_dates[0].isoformat()]
+ 
+    if entradas_en_semana and entradas_antes:
+        peso_fin_semana = sorted(entradas_en_semana, key=lambda r: r["fecha"])[-1]["peso"]
+        peso_inicio_semana = sorted(entradas_antes, key=lambda r: r["fecha"])[-1]["peso"]
+        cambio_real_pesado = peso_fin_semana - peso_inicio_semana
+ 
+        if idioma == "es":
+            st.info(f"⚖️ Comparando tus pesajes reales: cambiaste **{cambio_real_pesado:+.2f} kg** esta semana (de {peso_inicio_semana} kg a {peso_fin_semana} kg).")
+        else:
+            st.info(f"⚖️ Comparing your actual weigh-ins: you changed **{cambio_real_pesado:+.2f} kg** this week (from {peso_inicio_semana} kg to {peso_fin_semana} kg).")
+ 
+        diferencia_vs_plan = abs(cambio_real_pesado - cambio_peso_planeado_semana)
+        if diferencia_vs_plan > 0.3:
+            if idioma == "es":
+                st.warning("👀 Tu progreso real se está alejando bastante del plan. Puedes reajustar tu meta usando tu peso más reciente.")
+            else:
+                st.warning("👀 Your real progress is drifting from the plan. You can readjust your goal using your most recent weight.")
+ 
+            if st.button("🔄 Reajustar meta usando mi peso más reciente" if idioma == "es" else "🔄 Readjust goal using my latest weight"):
+                st.session_state.peso_actual_input = peso_fin_semana
+                st.rerun()
+        else:
+            st.success("✅ " + ("Vas según lo planeado, ¡sigue así!" if idioma == "es" else "You're on track with the plan, keep it up!"))
+    else:
+        st.caption("💡 " + ("Registra tu peso al menos dos veces (una antes y otra durante/después de esta semana) en la sección de arriba para comparar tu progreso real." if idioma == "es"
+                              else "Log your weight at least twice (once before and once during/after this week) in the section above to compare your real progress."))
+else:
+    st.info("Aún no has registrado comidas con fecha dentro de esta semana." if idioma == "es" else "You haven't logged any meals dated within this week yet.")
+ 
+st.markdown("---")
+ 
 # --- APARTADO: BALANCE TOTAL DEL MES ---
 st.subheader(t["resumen_mes"])
-
+ 
 total_calorias_registradas = sum(c["calorias"] for c in lista_comidas)
 total_proteinas_mes = sum(c["proteinas"] for c in lista_comidas)
-
+ 
 total_calorias_mes = total_calorias_registradas + (calorias_cheat_extra if activar_cheat else 0)
-
+ 
 if lista_comidas or activar_cheat:
     col_d1, col_d2, col_d3 = st.columns(3)
     with col_d1:
@@ -703,9 +937,9 @@ if lista_comidas or activar_cheat:
         st.metric(t["meta_mensual_txt"], f"{meta_calorias_mensual:.0f} kcal")
     with col_d3:
         st.metric(t["total_prot"], f"{total_proteinas_mes:.1f} g")
-
+ 
     diferencia_mensual = total_calorias_mes - meta_calorias_mensual
-
+ 
     if activar_cheat:
         st.error(f"🚨 **¡CHEAT MEALS ACUMULADOS EN EL MES!** Le sumaste +{calorias_cheat_extra} kcal extra al balance mensual. Todavía tienes semanas por delante para ajustar el ritmo y cumplir tu objetivo.")
     elif total_calorias_mes == 0:
@@ -720,25 +954,26 @@ if lista_comidas or activar_cheat:
         st.warning("👀 Vas algo pasado en el acumulado del mes. Intenta moderar un poco las porciones en las próximas semanas.")
     else:
         st.error("🚨 ¡Superávit mensual desatado! Te pasaste harto del presupuesto de los 30 días. ¡A ajustar las comidas que quedan del mes!")
-
+ 
     if lista_comidas:
         st.write(f"### {t['desglose_comidas']}")
-
+ 
         for i, comida in enumerate(lista_comidas):
             col_exp, col_btn = st.columns([4, 1])
-
+ 
             with col_exp:
-                with st.expander(f"📌 {comida['nombre']} ({comida['calorias']:.1f} kcal | {comida['proteinas']:.1f}g prot)"):
+                fecha_txt = f" — {comida.get('fecha', '')}" if comida.get("fecha") else ""
+                with st.expander(f"📌 {comida['nombre']}{fecha_txt} ({comida['calorias']:.1f} kcal | {comida['proteinas']:.1f}g prot)"):
                     for ing, cant in comida["detalle"].items():
                         st.text(f"- {cant}g de {ing}")
-
+ 
             with col_btn:
-                st.write("") 
+                st.write("")
                 if st.button(t["borrar"], key=f"eliminar_{i}"):
                     lista_comidas.pop(i)
                     guardar_datos_usuario_actual()
                     st.rerun()
-
+ 
     st.markdown("---")
     if st.button(t["borrar_todo"]):
         lista_comidas.clear()
@@ -746,3 +981,4 @@ if lista_comidas or activar_cheat:
         st.rerun()
 else:
     st.info(t["no_registros"])
+ 
